@@ -1015,7 +1015,7 @@ function viewEdital() {
               <div class="row" style="gap:4px"><button class="btn sm" data-mmove="${m.id}:-1" ${mi === 0 ? "disabled" : ""}>↑ Subir</button><button class="btn sm" data-mmove="${m.id}:1" ${mi === S.config.materias.length - 1 ? "disabled" : ""}>↓ Descer</button></div>
               <div class="row wrap end" style="gap:6px"><button class="btn danger sm" data-delmat="${m.id}">Excluir matéria</button><button class="btn primary sm" data-savemat="${m.id}">Salvar</button></div></div></div>
           </div>
-        </div></details>`; }).join("") : `<div class="empty" style="border:0;padding:12px"><h2>Nenhuma matéria ainda</h2><p>Importe o PDF do edital para cadastrar matérias e tópicos de uma vez, ou adicione uma por uma abaixo.</p>${IMP.aberto ? "" : `<button class="btn primary" id="impAbrir2">Importar edital</button>`}</div>`}
+        </div></details>`; }).join("") : `<div class="empty" style="border:0;padding:12px"><h2>Nenhuma matéria ainda</h2><p>Importe o edital por planilha ou PDF para cadastrar matérias e tópicos de uma vez, ou adicione uma por uma abaixo.</p>${IMP.aberto ? "" : `<button class="btn primary" id="impAbrir2">Importar edital</button>`}</div>`}
   </div>
   <form class="panel" id="newMat" style="margin-top:16px"><h2 style="margin-bottom:12px">Nova matéria</h2>
     <div class="form"><label class="field span2"><span>Nome</span><input type="text" id="nmNome" placeholder="ex.: Contabilidade Pública" maxlength="80"></label>
@@ -1093,14 +1093,16 @@ function mesclarMaterias(lista) {
   const mapa = new Map();
   for (const x of lista) {
     const nome = tituloCaso(String(x?.nome || "")); const k = chave(nome); if (k.length < 3) continue;
-    const alvo = mapa.get(k) || { nome, topicos: [], vistos: new Set() }; mapa.set(k, alvo);
+    const alvo = mapa.get(k) || { nome, topicos: [], vistos: new Set(), feitos: new Set(), horas: null }; mapa.set(k, alvo);
+    if (alvo.horas == null && Number.isFinite(x.horas) && x.horas >= 0) alvo.horas = Math.min(40, Math.round(x.horas * 2) / 2);
     for (let t of Array.isArray(x.topicos) ? x.topicos : []) {
+      let feito = false; if (t && typeof t === "object") { feito = !!t.feito; t = t.nome; }
       t = String(t || "").replace(/\s+/g, " ").replace(/[.;]?\s+\d{1,2}(?:\.\d{1,2})+\.?\s+(?=[A-ZÀ-Ú])/g, "; ").replace(/^[\s\d.)\-–•]+(?=[A-Za-zÀ-ú"“(])/, "").replace(/[\s.;,]+$/, "").trim();
       if (t.length > 260) t = t.slice(0, 257).trimEnd() + "…";
-      const kt = chave(t); if (t.length < 3 || alvo.vistos.has(kt)) continue; alvo.vistos.add(kt); alvo.topicos.push(t);
+      const kt = chave(t); if (feito && kt) alvo.feitos.add(kt); if (t.length < 3 || alvo.vistos.has(kt)) continue; alvo.vistos.add(kt); alvo.topicos.push(t);
     }
   }
-  return [...mapa.values()].filter(m => m.topicos.length).map(m => ({ nome: m.nome, topicos: m.topicos.slice(0, 250), incluir: true, horas: 2, alvoId: casarMateria(m.nome) }));
+  return [...mapa.values()].filter(m => m.topicos.length).map(m => ({ nome: m.nome, topicos: m.topicos.slice(0, 250), incluir: true, horas: m.horas ?? 2, feitos: m.feitos, alvoId: casarMateria(m.nome) }));
 }
 
 /* Leitura de PDF com pdf.js (carregado só quando necessário; roda na própria página) */
@@ -1130,6 +1132,55 @@ async function extrairPdf(file) {
   const freq = {}; paginas.forEach(p => new Set(p.split("\n").map(norm).filter(l => l.length > 3)).forEach(l => freq[l] = (freq[l] || 0) + 1));
   const lim = Math.max(3, doc.numPages * 0.3);
   return paginas.map(p => p.split("\n").filter(l => doc.numPages < 4 || (freq[norm(l)] || 0) < lim).join("\n")).join("\n");
+}
+
+/* Planilha (xlsx, xls, ods, csv) com SheetJS */
+let xlsxPronto = null;
+const carregarXlsx = () => xlsxPronto ||= loadScript("https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js").then(() => window.XLSX).catch(e => { xlsxPronto = null; throw e; });
+const SIM = /^(sim|s|x|ok|1|true|verdadeiro|concluido|concluida|feito|estudado|✓|✔)$/;
+function lerPlanilha(wb, XLSX) {
+  const out = [];
+  for (const aba of wb.SheetNames) {
+    if (/como preencher|instruc|leia/.test(chave(aba))) continue;
+    const linhas = XLSX.utils.sheet_to_json(wb.Sheets[aba], { header: 1, defval: "", raw: false, blankrows: false });
+    if (!linhas.length) continue;
+    let ini = 0, cM = 0, cT = 1, cH = -1, cC = -1;
+    for (let i = 0; i < Math.min(15, linhas.length); i++) {
+      const r = linhas[i].map(v => chave(v));
+      const m = r.findIndex(v => /^(materia|disciplina)/.test(v)), t = r.findIndex(v => /^(topico|conteudo|assunto|item)/.test(v));
+      if (m >= 0 && t >= 0) { ini = i + 1; cM = m; cT = t; cH = r.findIndex(v => /^(horas|hora|cargahoraria)/.test(v)); cC = r.findIndex(v => /^(concluid|feito|estudado|status|ok$)/.test(v)); break; }
+    }
+    let atual = null;
+    for (let i = ini; i < linhas.length; i++) {
+      const r = linhas[i]; const m = String(r[cM] ?? "").trim(), t = String(r[cT] ?? "").trim();
+      if (m) { const k = chave(m); atual = out.find(x => chave(x.nome) === k); if (!atual) { atual = { nome: m, horas: null, topicos: [] }; out.push(atual); } }
+      if (!atual) continue;
+      if (cH >= 0 && atual.horas == null && String(r[cH] ?? "").trim() !== "") { const h = parseFloat(String(r[cH]).replace(",", ".")); if (Number.isFinite(h)) atual.horas = h; }
+      if (t) atual.topicos.push({ nome: t, feito: cC >= 0 && SIM.test(chave(r[cC]) || String(r[cC] ?? "").trim()) });
+    }
+  }
+  return out;
+}
+async function baixarModelo() {
+  const XLSX = await carregarXlsx();
+  const ex = [["Matéria", "Tópico", "Horas no ciclo", "Concluído"],
+    ["Língua Portuguesa", "Compreensão e interpretação de textos", 4, "sim"], ["Língua Portuguesa", "Ortografia oficial e acentuação gráfica", "", ""],
+    ["Direito Administrativo", "Princípios da Administração Pública", 3, ""], ["", "Atos administrativos", "", ""], ["", "Licitações e contratos (Lei nº 14.133/2021)", "", ""]];
+  const instr = [["Como preencher"], [""], ["Use só a aba Edital, com uma linha por tópico. Apague as linhas de exemplo antes de importar."],
+    ["Matéria: nome da disciplina. Pode escrever só na primeira linha da matéria; as linhas de baixo em branco ficam na mesma matéria."],
+    ["Tópico: um conteúdo por linha, como está no edital. Numeração no início é removida automaticamente."],
+    ["Horas no ciclo (opcional): na primeira linha da matéria. Em branco, entra com 2 horas."],
+    ["Concluído (opcional): sim ou x nos tópicos que você já estudou."],
+    ["Outras colunas são ignoradas. Também aceita .csv com o mesmo cabeçalho."]];
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(ex); ws["!cols"] = [{ wch: 30 }, { wch: 60 }, { wch: 15 }, { wch: 12 }];
+  const wi = XLSX.utils.aoa_to_sheet(instr); wi["!cols"] = [{ wch: 110 }];
+  XLSX.utils.book_append_sheet(wb, ws, "Edital"); XLSX.utils.book_append_sheet(wb, wi, "Como preencher");
+  const dados = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+  const nome = "modelo-edital-mesa-de-estudos.xlsx";
+  if (typeof downloads !== "undefined" && downloads) { await downloads.save({ filename: nome, data: dados }); return; }
+  const url = URL.createObjectURL(new Blob([dados], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+  const a = document.createElement("a"); a.href = url; a.download = nome; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 5000);
 }
 
 /* Reconhecimento sem IA */
@@ -1235,7 +1286,12 @@ function viewImport() {
   if (IMP.resultado) return viewRevisaoImport();
   const msg = IMP.erro || IMP.status;
   return `<div class="panel" style="margin-bottom:16px"><div class="ph"><h2>Importar edital</h2><button class="btn ghost sm" id="impFechar">Fechar</button></div>
-    <p class="muted small" style="margin-bottom:12px">Envie o PDF do edital ou cole o texto do conteúdo programático. O sistema reconhece as matérias e os tópicos e mostra tudo para você revisar antes de cadastrar.</p>
+    <div class="row wrap" style="gap:10px;padding:12px;border:1.5px dashed var(--line);border-radius:8px;margin-bottom:16px">
+      <div class="grow" style="min-width:200px"><b>Importar por planilha</b><div class="muted small">Preencha o modelo com uma linha por tópico (Matéria, Tópico, Horas no ciclo, Concluído) e envie. Aceita .xlsx, .xls, .ods e .csv.</div></div>
+      <button class="btn" id="impModelo" ${IMP.ocupado ? "disabled" : ""}>Baixar planilha modelo</button>
+      <label class="btn primary" for="impPlan" ${IMP.ocupado ? 'aria-disabled="true" style="pointer-events:none;opacity:.5"' : ""}>Importar planilha</label><input type="file" id="impPlan" accept=".xlsx,.xls,.ods,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv" hidden>
+    </div>
+    <p class="muted small" style="margin-bottom:12px">Ou envie o PDF do edital ou cole o texto do conteúdo programático. O sistema reconhece as matérias e os tópicos e mostra tudo para você revisar antes de cadastrar.</p>
     <div class="form">
       <div class="field span2"><span>Arquivo do edital (PDF ou TXT)</span><div class="row wrap"><label class="btn" for="impArq" ${IMP.ocupado ? 'aria-disabled="true" style="pointer-events:none;opacity:.5"' : ""}>Escolher arquivo</label><input type="file" id="impArq" accept=".pdf,.txt,application/pdf,text/plain" hidden><span class="muted small trunc" style="max-width:100%">${IMP.origem ? esc(IMP.origem) : "nenhum arquivo escolhido"}</span></div></div>
       <label class="field span2"><span>Cargo (opcional, para pegar só o conteúdo dele)</span><input type="text" id="impCargo" value="${esc(IMP.cargo)}" placeholder="ex.: Técnico de Controle Externo"></label>
@@ -1261,7 +1317,7 @@ function viewRevisaoImport() {
         <select id="imp_a_${i}" style="width:auto;max-width:240px" aria-label="Destino"><option value="">Criar matéria nova</option>${S.config.materias.map(m => `<option value="${m.id}" ${m.id === x.alvoId ? "selected" : ""}>Juntar com ${esc(m.nome)}</option>`).join("")}</select>
         <label class="row" style="gap:6px" id="imp_hl_${i}" ${x.alvoId ? "hidden" : ""}><span class="muted small">h/ciclo</span><input type="number" id="imp_h_${i}" min="0" step="0.5" value="${x.horas}" style="width:76px"></label>
       </div>
-      <details style="margin-top:6px" data-impd="${i}" ${IMP.abertos.has(i) ? "open" : ""}><summary class="muted small" style="cursor:pointer">${x.topicos.length} tópicos · ver e editar</summary>
+      <details style="margin-top:6px" data-impd="${i}" ${IMP.abertos.has(i) ? "open" : ""}><summary class="muted small" style="cursor:pointer">${x.topicos.length} tópicos${x.feitos?.size ? ` · ${x.topicos.filter(t => x.feitos.has(chave(t))).length} já concluídos` : ""} · ver e editar</summary>
         <textarea id="imp_t_${i}" style="margin-top:6px;min-height:150px" aria-label="Tópicos, um por linha">${esc(x.topicos.join("\n"))}</textarea></details>
     </div>`).join("")}</div>
     <div class="row wrap between" style="margin-top:14px">
@@ -1289,7 +1345,9 @@ function aplicarImport() {
       let m = x.alvoId && mat(x.alvoId);
       if (!m) { m = { id: uid(), nome: x.nome.trim(), horasCiclo: x.horas, cor: CORES[S.config.materias.length % CORES.length], topicos: [] }; S.config.materias.push(m); nM++; }
       const ex = new Set(m.topicos.map(t => chave(t.nome)));
-      for (const t of x.topicos) { const k = chave(t); if (!ex.has(k)) { m.topicos.push({ id: uid(), nome: t, feito: false }); ex.add(k); nT++; } }
+      for (const t of x.topicos) { const k = chave(t); const f = !!x.feitos?.has(k);
+        if (!ex.has(k)) { m.topicos.push({ id: uid(), nome: t, feito: f }); ex.add(k); nT++; }
+        else if (f) { const e = m.topicos.find(o => chave(o.nome) === k); if (e) e.feito = true; } }
     }
   } else {
     const usados = new Set(), novas = [];
@@ -1299,7 +1357,7 @@ function aplicarImport() {
       const m = old ? { ...old, nome: x.nome.trim() } : { id: uid(), nome: x.nome.trim(), horasCiclo: x.horas, cor: CORES[novas.length % CORES.length], topicos: [] };
       if (!old) nM++;
       const vistos = new Set();
-      m.topicos = x.topicos.filter(t => { const k = chave(t); if (vistos.has(k)) return false; vistos.add(k); return true; }).map(t => porNome.get(chave(t)) || { id: uid(), nome: t, feito: false });
+      m.topicos = x.topicos.filter(t => { const k = chave(t); if (vistos.has(k)) return false; vistos.add(k); return true; }).map(t => { const k = chave(t), f = !!x.feitos?.has(k), e = porNome.get(k); return e ? (f ? { ...e, feito: true } : e) : { id: uid(), nome: t, feito: f }; });
       nT += m.topicos.length; novas.push(m);
     }
     S.config.materias = novas;
@@ -1325,6 +1383,21 @@ function bindImportEdital() {
     } catch (e) {
       IMP.erro = e?.name === "PasswordException" ? "O PDF está protegido por senha. Remova a senha ou cole o texto." : e?.message === "script" ? "Não foi possível carregar o leitor de PDF. Confira a conexão ou cole o texto." : "Não foi possível ler este arquivo. Tente outro PDF ou cole o texto.";
     }
+    IMP.ocupado = false; render();
+  };
+  const mod = $("#impModelo");
+  if (mod) mod.onclick = async () => { try { await baixarModelo(); toast("Planilha modelo baixada"); } catch (e) { if (e?.code !== "declined" && e?.code !== "cancelled") { IMP.erro = "Não foi possível gerar a planilha modelo agora. Confira a internet e tente de novo."; render(); } } };
+  const plan = $("#impPlan");
+  if (plan) plan.onchange = async () => {
+    const f = plan.files?.[0]; if (!f) return;
+    Object.assign(IMP, { erro: "", status: "Lendo a planilha…", ocupado: true }); render();
+    try {
+      const XLSX = await carregarXlsx();
+      const wb = /\.csv$/i.test(f.name) ? XLSX.read(await f.text(), { type: "string", raw: false }) : XLSX.read(new Uint8Array(await f.arrayBuffer()), { type: "array" });
+      const r = mesclarMaterias(lerPlanilha(wb, XLSX));
+      if (r.length) { IMP.resultado = r; IMP.abertos = new Set(); IMP.status = ""; IMP.erro = ""; }
+      else IMP.erro = "Não encontrei matérias e tópicos nesta planilha. Use o modelo: coluna Matéria, coluna Tópico e uma linha por tópico.";
+    } catch (e) { IMP.erro = e?.message === "script" ? "Não foi possível carregar o leitor de planilhas. Confira a internet e tente de novo." : "Não foi possível ler este arquivo. Salve como .xlsx ou .csv e tente de novo."; }
     IMP.ocupado = false; render();
   };
   const semTexto = () => { if (IMP.texto.trim().length >= 20) return false; IMP.erro = "Escolha o PDF do edital ou cole o texto antes de reconhecer."; render(); return true; };
