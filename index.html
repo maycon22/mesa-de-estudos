@@ -62,6 +62,8 @@ button,input,select,textarea{font:inherit;color:inherit}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 
 .shell{display:grid;grid-template-columns:220px minmax(0,1fr);min-height:100%}
+.shell.solo{grid-template-columns:minmax(0,1fr)}
+.shell.solo main{max-width:none}
 nav.rail{position:sticky;top:env(safe-area-inset-top,0px);height:100vh;border-right:1px solid var(--line);padding:22px 14px;display:flex;flex-direction:column;gap:4px;padding-left:max(14px,env(safe-area-inset-left,0px))}
 .brand{font-family:var(--f-display);font-weight:800;font-size:1.15rem;padding:0 10px 16px;display:flex;align-items:center;gap:8px}
 .brand i{display:inline-block;width:14px;height:14px;background:var(--mark);border-radius:3px;transform:rotate(-8deg)}
@@ -100,7 +102,7 @@ main{padding-block:28px 60px;padding-left:max(28px,env(safe-area-inset-left,0px)
 
 .field{display:flex;flex-direction:column;gap:4px;min-width:0}
 .field>span{font-size:.8rem;color:var(--muted);font-weight:600}
-input[type=text],input[type=number],input[type=date],select,textarea{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-width:0}
+input[type=text],input[type=number],input[type=date],input[type=email],input[type=password],select,textarea{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-width:0}
 textarea{min-height:90px;resize:vertical}
 .form{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
 .span2{grid-column:span 2}.span4{grid-column:1/-1}
@@ -439,7 +441,7 @@ function trocarUsuario(session) {
 }
 async function boot() {
   if (!window.supabase || /^COLE_AQUI/.test(CONFIG.supabaseUrl) || /^COLE_AQUI/.test(CONFIG.supabaseKey)) {
-    $("#nav").hidden = true;
+    $("#nav").hidden = true; $(".shell").classList.add("solo");
     $("#main").innerHTML = `<div class="auth panel"><div class="brand-big"><i></i>Mesa de Estudos</div><h2>Falta configurar o Supabase</h2><p class="muted" style="margin-top:8px">${window.supabase ? "Abra o arquivo index.html e preencha a Project URL e a chave pública no bloco CONFIGURAÇÃO, perto do início do código." : "Não foi possível carregar a biblioteca do Supabase. Confira a internet e recarregue a página."}</p></div>`;
     return;
   }
@@ -624,8 +626,9 @@ function render() {
   const v = view(); prevView = v; pendingRender = false;
   $$("#nav a[data-v]").forEach(a => a.dataset.v === v ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current"));
   const main = $("#main");
-  if (sb && (!userId || AUTH.recuperando)) { $("#nav").hidden = true; main.innerHTML = viewAuth(); bindAuth(); return; }
-  $("#nav").hidden = !userId;
+  const semMenu = !!sb && (!userId || AUTH.recuperando);
+  $("#nav").hidden = semMenu || !userId; $(".shell").classList.toggle("solo", $("#nav").hidden);
+  if (semMenu) { main.innerHTML = viewAuth(); bindAuth(); return; }
   if (!S.loaded) return;
   const rb = $("#revBadge");
   if (S.config) { const n = revisoesLista().filter(x => x.r.data <= today()).length; rb.hidden = !n; rb.textContent = n; } else rb.hidden = true;
