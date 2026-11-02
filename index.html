@@ -1,0 +1,1523 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Mesa de Estudos</title>
+<meta name="description" content="Planner de estudos para concursos: ciclo, cronômetro, edital verticalizado, revisões e desempenho.">
+<meta name="theme-color" content="#16201B">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Mesa de Estudos">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@500;700;800&family=Public+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: trilho de navegação à esquerda (barra rolável no topo no celular) + área de trabalho em blocos; marca-texto amarelo destaca "o que fazer agora". */
+:root{
+  --bg:#F2F5F3; --surface:#FFFFFF; --sunk:#E8EDEA; --ink:#16201B; --muted:#5A6862; --line:#D8E0DB;
+  --accent:#1F57D1; --accent-ink:#FFFFFF; --accent-soft:#E3EBFC;
+  --mark:#F5DB4C; --mark-ink:#16201B;
+  --good:#23845A; --warn:#B87A0C; --bad:#C23E36;
+  --f-display:"Schibsted Grotesk",ui-sans-serif,system-ui,sans-serif;
+  --f-body:"Public Sans",ui-sans-serif,system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --r:10px;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0E1412; --surface:#161F1B; --sunk:#1C2622; --ink:#E6EDE9; --muted:#93A39B; --line:#283430;
+  --accent:#86A6FF; --accent-ink:#0B1020; --accent-soft:#1D2A4A;
+  --mark:#E2C93A; --mark-ink:#16201B;
+  --good:#4FC48E; --warn:#E3AA3E; --bad:#F07A70; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0E1412; --surface:#161F1B; --sunk:#1C2622; --ink:#E6EDE9; --muted:#93A39B; --line:#283430;
+  --accent:#86A6FF; --accent-ink:#0B1020; --accent-soft:#1D2A4A;
+  --mark:#E2C93A; --mark-ink:#16201B;
+  --good:#4FC48E; --warn:#E3AA3E; --bad:#F07A70; color-scheme:dark}
+*{box-sizing:border-box}
+:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html,body{background:var(--bg);color:var(--ink);margin:0}
+img{max-width:100%}
+[hidden]{display:none!important}
+body{font-family:var(--f-body);font-size:15px;line-height:1.5;-webkit-text-size-adjust:100%}
+.auth{max-width:420px;margin:6vh auto 0}
+.auth .brand-big{font-family:var(--f-display);font-weight:800;font-size:1.6rem;display:flex;align-items:center;gap:10px;margin-bottom:18px}
+.auth .brand-big i{display:inline-block;width:18px;height:18px;background:var(--mark);border-radius:4px;transform:rotate(-8deg)}
+.linkbtn{background:none;border:0;padding:0;color:var(--accent);cursor:pointer;font-weight:600;text-decoration:underline;text-underline-offset:2px}
+.sync{font-size:.75rem;color:var(--muted);padding:6px 10px}
+.sync b{font-weight:600}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;line-height:1.15}
+h1{font-size:1.75rem;font-weight:800;letter-spacing:-.01em}
+h2{font-size:1.15rem;font-weight:700}
+h3{font-size:1rem;font-weight:700}
+p{margin:0}
+.num,.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.label{font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.muted{color:var(--muted)}
+.small{font-size:.82rem}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.shell{display:grid;grid-template-columns:220px minmax(0,1fr);min-height:100%}
+nav.rail{position:sticky;top:env(safe-area-inset-top,0px);height:100vh;border-right:1px solid var(--line);padding:22px 14px;display:flex;flex-direction:column;gap:4px;padding-left:max(14px,env(safe-area-inset-left,0px))}
+.brand{font-family:var(--f-display);font-weight:800;font-size:1.15rem;padding:0 10px 16px;display:flex;align-items:center;gap:8px}
+.brand i{display:inline-block;width:14px;height:14px;background:var(--mark);border-radius:3px;transform:rotate(-8deg)}
+nav.rail a{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 10px;border-radius:8px;color:var(--muted);text-decoration:none;font-weight:500;white-space:nowrap}
+nav.rail a:hover{background:var(--sunk);color:var(--ink)}
+nav.rail a[aria-current="page"]{background:var(--surface);color:var(--ink);box-shadow:inset 0 0 0 1px var(--line)}
+.badge{font-family:var(--f-mono);font-size:.72rem;background:var(--bad);color:#fff;border-radius:99px;padding:1px 7px}
+.rail .timer-mini{margin-top:auto;padding:10px;border-radius:8px;background:var(--mark);color:var(--mark-ink);font-family:var(--f-mono);font-weight:700;text-decoration:none;display:block}
+.rail .timer-mini:hover{background:var(--mark);color:var(--mark-ink);filter:brightness(.96)}
+main{padding-block:28px 60px;padding-left:max(28px,env(safe-area-inset-left,0px));padding-right:max(28px,env(safe-area-inset-right,0px));max-width:1100px;width:100%}
+.head{display:flex;flex-wrap:wrap;align-items:end;justify-content:space-between;gap:12px;margin-bottom:22px}
+.status{font-size:.82rem;color:var(--muted)}
+.notice{font-size:.85rem;background:var(--accent-soft);border-radius:8px;padding:8px 12px;margin:-8px 0 16px}
+
+.grid{display:grid;gap:16px}
+.g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.g3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px;min-width:0}
+.panel>h2,.panel>.ph{margin-bottom:12px}
+.ph{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.stat .v{font-family:var(--f-mono);font-size:1.7rem;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1}
+.stat .s{font-size:.82rem;color:var(--muted)}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:8px 14px;cursor:pointer;font-weight:600;text-decoration:none;color:var(--ink);white-space:nowrap}
+.btn:hover{background:var(--sunk)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.primary:hover{filter:brightness(1.07)}
+.btn.mark{background:var(--mark);color:var(--mark-ink);border-color:transparent}
+.btn.mark:hover{filter:brightness(.96)}
+.btn.ghost{border-color:transparent;background:transparent;color:var(--muted)}
+.btn.ghost:hover{color:var(--ink);background:var(--sunk)}
+.btn.danger{color:var(--bad)}
+.btn.sm{padding:4px 10px;font-size:.85rem}
+.btn.icon{padding:4px 8px;min-width:30px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+
+.field{display:flex;flex-direction:column;gap:4px;min-width:0}
+.field>span{font-size:.8rem;color:var(--muted);font-weight:600}
+input[type=text],input[type=number],input[type=date],select,textarea{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-width:0}
+textarea{min-height:90px;resize:vertical}
+.form{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.span2{grid-column:span 2}.span4{grid-column:1/-1}
+.check{display:flex;align-items:center;gap:8px;font-size:.92rem}
+.check input{width:18px;height:18px;accent-color:var(--accent);flex:none}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--line);border-radius:99px;padding:5px 12px;cursor:pointer;background:var(--bg);font-size:.88rem}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+
+.dot{display:inline-block;width:10px;height:10px;border-radius:3px;flex:none}
+.bar{height:8px;background:var(--sunk);border-radius:99px;overflow:hidden}
+.bar>i{display:block;height:100%;border-radius:99px;background:var(--accent)}
+.row{display:flex;align-items:center;gap:10px;min-width:0}
+.row .grow{flex:1;min-width:0}
+.wrap{flex-wrap:wrap}
+.end{justify-content:flex-end}
+.between{justify-content:space-between}
+.list{display:flex;flex-direction:column}
+.list>.li{padding:11px 0;border-top:1px solid var(--line)}
+.list>.li:first-child{border-top:0}
+.trunc{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pill{font-size:.75rem;font-weight:600;border-radius:99px;padding:2px 9px;white-space:nowrap}
+.pill.good{background:color-mix(in srgb,var(--good) 16%,transparent);color:var(--good)}
+.pill.warn{background:color-mix(in srgb,var(--warn) 18%,transparent);color:var(--warn)}
+.pill.bad{background:color-mix(in srgb,var(--bad) 16%,transparent);color:var(--bad)}
+.pill.neutral{background:var(--sunk);color:var(--muted)}
+
+/* Próxima matéria: o destaque marca-texto */
+.next{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:20px;display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:space-between}
+.next .hl{font-family:var(--f-display);font-weight:800;font-size:1.6rem;background:linear-gradient(transparent 55%,var(--mark) 55%,var(--mark) 92%,transparent 92%);color:var(--ink);padding:0 4px;box-decoration-break:clone;-webkit-box-decoration-break:clone}
+.plan{display:flex;flex-direction:column;gap:6px;margin-top:4px}
+.plan .blk{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;background:var(--bg)}
+
+/* Cronômetro */
+.clock{font-family:var(--f-mono);font-weight:700;font-size:clamp(3rem,13vw,6.5rem);letter-spacing:-.02em;font-variant-numeric:tabular-nums;line-height:1;text-align:center;padding:18px 0 8px}
+.clock.running{color:var(--accent)}
+.clock-sub{text-align:center;color:var(--muted);margin-bottom:18px}
+.ctrl{display:flex;justify-content:center;gap:10px;flex-wrap:wrap}
+.ctrl .btn{min-width:120px;padding:12px 18px;font-size:1rem}
+.pomo{display:flex;justify-content:center;gap:6px;flex-wrap:wrap;margin-top:14px}
+
+/* Heatmap de constância */
+.heat-wrap{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px}
+.heat-days{display:grid;grid-template-rows:repeat(7,12px);gap:3px;font-size:.65rem;color:var(--muted);line-height:12px}
+.heat{display:grid;grid-auto-flow:column;grid-template-rows:repeat(7,12px);gap:3px}
+.heat i{width:12px;height:12px;border-radius:3px;background:var(--sunk)}
+.heat i[data-l="1"]{background:color-mix(in srgb,var(--accent) 30%,var(--sunk))}
+.heat i[data-l="2"]{background:color-mix(in srgb,var(--accent) 55%,var(--sunk))}
+.heat i[data-l="3"]{background:color-mix(in srgb,var(--accent) 80%,var(--sunk))}
+.heat i[data-l="4"]{background:var(--accent)}
+.heat i.today{outline:2px solid var(--mark);outline-offset:-1px}
+.legend{display:flex;align-items:center;gap:4px;font-size:.75rem;color:var(--muted)}
+.legend i{width:11px;height:11px;border-radius:3px;display:inline-block}
+
+/* Gráficos de colunas */
+.cols{display:grid;gap:8px;height:160px;padding-top:4px}
+.cols .col{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0;height:100%}
+.cols .track{flex:1;width:100%;display:flex;align-items:flex-end;justify-content:center;position:relative;min-height:0}
+.cols .b{width:100%;max-width:38px;background:var(--accent);border-radius:5px 5px 2px 2px;min-height:2px}
+.cols .b.zero{background:var(--sunk)}
+.cols .t{font-family:var(--f-mono);font-size:.7rem;color:var(--muted);white-space:nowrap;height:1.1em}
+.cols .d{font-size:.72rem;color:var(--muted);white-space:nowrap}
+.cols .d.now{color:var(--ink);font-weight:700}
+.cols .goal{position:absolute;left:0;right:0;border-top:1.5px dashed var(--muted);opacity:.6}
+
+/* Edital */
+details.mat{border-top:1px solid var(--line)}
+details.mat:first-of-type{border-top:0}
+details.mat>summary{list-style:none;cursor:pointer;padding:14px 0;display:flex;align-items:center;gap:12px}
+details.mat>summary::-webkit-details-marker{display:none}
+details.mat>summary .chev{transition:transform .15s;color:var(--muted)}
+details.mat[open]>summary .chev{transform:rotate(90deg)}
+.topics{padding:0 0 14px 22px;display:flex;flex-direction:column;gap:2px}
+.topic{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:6px}
+.topic:hover{background:var(--bg)}
+.topic input[type=checkbox]{width:18px;height:18px;accent-color:var(--accent);flex:none}
+.topic.done .tn{color:var(--muted);text-decoration:line-through;text-decoration-color:var(--line)}
+.topic .tn{flex:1;min-width:0;overflow-wrap:anywhere}
+.topic .meta{font-size:.78rem;color:var(--muted);white-space:nowrap}
+.topic .acts{display:flex;gap:2px;opacity:.55}
+.topic:hover .acts,.topic:focus-within .acts{opacity:1}
+
+.empty{border:1.5px dashed var(--line);border-radius:var(--r);padding:28px;text-align:center;color:var(--muted)}
+.empty h2{color:var(--ink);margin-bottom:6px}
+.empty p{margin-bottom:14px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;font-weight:600;z-index:20;max-width:calc(100% - 32px)}
+.scroll-x{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.9rem}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap;vertical-align:top}
+th{font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
+td.r,th.r{text-align:right}
+
+@media (max-width:860px){
+  .shell{grid-template-columns:1fr}
+  nav.rail{position:sticky;height:auto;flex-direction:row;overflow-x:auto;border-right:0;border-bottom:1px solid var(--line);padding:8px 0;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));background:var(--bg);z-index:5;gap:2px}
+  .brand{display:none}
+  .rail .timer-mini{margin-top:0;margin-left:6px;padding:9px 10px}
+  main{padding-block:20px 60px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+  .g2,.g3{grid-template-columns:1fr}
+  .form{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .span2{grid-column:1/-1}
+  .topics{padding-left:4px}
+  .topic .acts{opacity:1}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
+</head>
+<body>
+<div class="shell">
+  <nav class="rail" id="nav" aria-label="Seções">
+    <div class="brand"><i></i>Mesa de Estudos</div>
+    <a href="#hoje" data-v="hoje">Hoje</a>
+    <a href="#cronometro" data-v="cronometro">Cronômetro</a>
+    <a href="#registrar" data-v="registrar">Registrar estudo</a>
+    <a href="#ciclo" data-v="ciclo">Ciclo de estudos</a>
+    <a href="#edital" data-v="edital">Edital verticalizado</a>
+    <a href="#revisoes" data-v="revisoes">Revisões <span class="badge" id="revBadge" hidden>0</span></a>
+    <a href="#desempenho" data-v="desempenho">Desempenho</a>
+    <a href="#historico" data-v="historico">Histórico</a>
+    <a href="#ajustes" data-v="ajustes">Ajustes</a>
+    <a class="timer-mini" id="timerMini" href="#cronometro" hidden>● 00:00:00</a>
+    <div class="sync" id="syncInfo" aria-live="polite"></div>
+  </nav>
+  <main id="main">
+    <div class="empty"><h2>Abrindo sua mesa de estudos…</h2><p>Carregando matérias, sessões e revisões.</p></div>
+  </main>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script>
+(() => {
+"use strict";
+/* ---------- utilidades ---------- */
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
+const pad = n => String(n).padStart(2, "0");
+const ymd = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const today = () => ymd(new Date());
+const parseYmd = s => { const [y,m,d] = String(s).split("-").map(Number); return new Date(y, (m||1)-1, d||1); };
+const addDays = (s, n) => { const d = parseYmd(s); d.setDate(d.getDate()+n); return ymd(d); };
+const diffDays = (a, b) => Math.round((parseYmd(a) - parseYmd(b)) / 864e5);
+const fmtH = min => { min = Math.round(min||0); const h = Math.floor(min/60), m = min%60; return h ? `${h}h${m?pad(m):""}` : `${m}min`; };
+const fmtClock = sec => { sec = Math.max(0, Math.floor(sec)); return `${pad(Math.floor(sec/3600))}:${pad(Math.floor(sec%3600/60))}:${pad(sec%60)}`; };
+const DOW = ["dom","seg","ter","qua","qui","sex","sáb"];
+const fmtDate = s => { const d = parseYmd(s); return `${DOW[d.getDay()]}, ${pad(d.getDate())}/${pad(d.getMonth()+1)}`; };
+const fmtShort = s => { const d = parseYmd(s); return `${pad(d.getDate())}/${pad(d.getMonth()+1)}`; };
+const pct = (a, b) => b ? Math.round(a / b * 100) : null;
+const accClass = p => p == null ? "neutral" : p >= 80 ? "good" : p >= 65 ? "warn" : "bad";
+const weekStart = s => { const d = parseYmd(s); d.setDate(d.getDate() - (d.getDay() + 6) % 7); return ymd(d); };
+const ls = { get(k){ try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } }, set(k,v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch {} } };
+let toastT; const toast = msg => { const t = $("#toast"); t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 2800); };
+/* botão de confirmação em dois toques (a página não pode usar confirm()) */
+const armed = (b, label) => { if (b.dataset.armed) return true; b.dataset.armed = 1; const old = b.textContent; b.textContent = label; b.classList.add("danger"); setTimeout(() => { if (b.isConnected) { delete b.dataset.armed; b.textContent = old; b.classList.remove("danger"); } }, 4000); return false; };
+
+const CORES = ["#3B6FE0","#D2533F","#2E9A6A","#B5862A","#8A5BD4","#D04E8E","#2B98B0","#7B8B2C","#C46A2B","#5C6BC0"];
+const NOMES_COR = ["Azul","Vermelho","Verde","Ocre","Roxo","Rosa","Turquesa","Oliva","Laranja","Índigo"];
+const CATEGORIAS = ["Teoria","Questões","Revisão","Leitura","Videoaula","Simulado","Lei seca"];
+const CAT_REVISA = ["Teoria","Leitura","Videoaula","Lei seca"];
+const MAX_TIMER_H = 8;
+
+/* ---------- estado ---------- */
+const S = { config: null, months: {}, loaded: false, mode: "local", note: "", lastSig: "", confirmado: false };
+/* ===== CONFIGURAÇÃO: preencha com os dados do seu projeto Supabase (Project Settings → API) ===== */
+const CONFIG = {
+  supabaseUrl: "https://hdegaqyvolsqgydwuyau.supabase.co",
+  supabaseKey: "sb_publishable_VhOaPtkqrlnx55GrhpiMLQ_5rZkHUbG"
+};
+/* ================================================================================================ */
+let sb = null, userId = null, canal = null, sampleFn = null;
+const sessoes = () => Object.values(S.months).flatMap(m => Array.isArray(m?.sessoes) ? m.sessoes : []);
+const mat = id => S.config?.materias.find(m => m.id === id);
+const topico = (m, id) => m?.topicos.find(t => t.id === id);
+
+function normalizeConfig(c) {
+  if (!c || typeof c !== "object") return null;
+  c.materias = Array.isArray(c.materias) ? c.materias : [];
+  const idOk = v => typeof v === "string" && /^[A-Za-z0-9_-]{1,40}$/.test(v);
+  c.materias.forEach((m, i) => { if (!idOk(m.id)) m.id = uid(); m.nome = String(m.nome || "Matéria"); m.horasCiclo = Number(m.horasCiclo) || 0; if (!/^#[0-9a-f]{6}$/i.test(m.cor || "")) m.cor = CORES[i % CORES.length]; m.topicos = Array.isArray(m.topicos) ? m.topicos : []; m.topicos.forEach(t => { if (!idOk(t.id)) t.id = uid(); t.nome = String(t.nome || ""); t.feito = !!t.feito; }); });
+  c.metaSemanal = Number(c.metaSemanal) || 20;
+  c.revisoes = Array.isArray(c.revisoes) && c.revisoes.length ? c.revisoes.map(Number).filter(n => n > 0) : [1, 7, 30];
+  c.cicloInicio = Number(c.cicloInicio) || Date.now();
+  c.cicloModo = c.cicloModo === "sequencia" ? "sequencia" : "atrasada";
+  c.ciclosConcluidos = Number(c.ciclosConcluidos) || 0;
+  c.dataProva ||= ""; c.objetivo ??= "";
+  const dias = Array.isArray(c.diasEstudo) ? [...new Set(c.diasEstudo.map(Number).filter(n => Number.isInteger(n) && n >= 0 && n <= 6))] : [];
+  c.diasEstudo = dias.length ? dias : [0,1,2,3,4,5,6];
+  return c;
+}
+const num = v => Math.max(0, Math.round(Number(v) || 0));
+function normalizeMes(m) {
+  const lista = Array.isArray(m?.sessoes) ? m.sessoes : [];
+  const limpa = v => /^[A-Za-z0-9_-]{1,40}$/.test(String(v || "")) ? String(v) : "";
+  return { sessoes: lista.filter(x => x && typeof x === "object" && limpa(x.id) && /^\d{4}-\d{2}-\d{2}$/.test(x.data || "")).map(x => ({
+    ...x, materiaId: limpa(x.materiaId), topicoId: limpa(x.topicoId), categoria: CATEGORIAS.includes(x.categoria) ? x.categoria : "Teoria",
+    minutos: Math.min(1440, num(x.minutos)), questoes: num(x.questoes), acertos: Math.min(num(x.acertos), num(x.questoes)), paginas: num(x.paginas), aulas: num(x.aulas),
+    nota: String(x.nota || ""), criadoEm: Number(x.criadoEm) || 0,
+    revs: Array.isArray(x.revs) ? x.revs.filter(r => r && /^\d{4}-\d{2}-\d{2}$/.test(r.data || "")).map(r => ({ ...r, d: num(r.d), feita: !!r.feita })) : [] })) };
+}
+
+function baseTCE() {
+  const M = (nome, h, tops) => ({ id: uid(), nome, horasCiclo: h, cor: "", topicos: tops.map(n => ({ id: uid(), nome: n, feito: false })) });
+  const ms = [
+    M("Língua Portuguesa", 4, ["Interpretação e compreensão de textos","Ortografia e acentuação","Classes de palavras","Concordância verbal e nominal","Regência e crase","Pontuação","Coesão e coerência"]),
+    M("Raciocínio Lógico-Matemático", 2, ["Proposições e conectivos","Equivalências e negações","Porcentagem e proporção","Análise combinatória","Probabilidade"]),
+    M("Direito Constitucional", 3, ["Princípios fundamentais","Direitos e garantias fundamentais","Organização do Estado","Administração Pública (arts. 37 a 41)","Fiscalização contábil, financeira e orçamentária (arts. 70 a 75)"]),
+    M("Direito Administrativo", 3, ["Princípios da Administração","Atos administrativos","Poderes administrativos","Licitações (Lei 14.133/2021)","Contratos administrativos","Agentes públicos","Improbidade administrativa"]),
+    M("Controle Externo", 3, ["Conceito e espécies de controle","Tribunais de Contas: natureza e competências","Julgamento de contas e sanções","Fiscalização: auditorias e inspeções"]),
+    M("Administração Pública", 2, ["Modelos de administração","Gestão de pessoas","Planejamento estratégico","Gestão de processos"]),
+    M("AFO", 2, ["Princípios orçamentários","Ciclo orçamentário: PPA, LDO e LOA","Receita pública","Despesa pública","LRF"]),
+    M("Noções de Informática", 1, ["Sistemas operacionais","Editores e planilhas","Internet e segurança"]),
+    M("Legislação do TCE-GO", 1, ["Lei Orgânica do TCE-GO","Regimento Interno"])
+  ];
+  ms.forEach((m, i) => m.cor = CORES[i % CORES.length]);
+  return ms;
+}
+const defaultConfig = materias => normalizeConfig({ materias, metaSemanal: 20, revisoes: [1, 7, 30], cicloInicio: Date.now(), ciclosConcluidos: 0, dataProva: "", objetivo: "TCE-GO · Técnico de Controle Externo" });
+
+/* ---------- persistência (Supabase + cópia local para uso sem internet) ---------- */
+const clone = v => JSON.parse(JSON.stringify(v));
+const writing = {}, queued = {};
+const chaveCache = () => "mesa-cache:" + userId, chavePend = () => "mesa-pendentes:" + userId;
+const pendentesLocais = () => new Set(ls.get(chavePend()) || []);
+const marcarPendente = (k, sim) => { const p = pendentesLocais(); sim ? p.add(k) : p.delete(k); ls.set(chavePend(), [...p]); atualizarSync(); };
+function salvarCache() { if (userId) ls.set(chaveCache(), { config: S.config, months: S.months }); }
+const SYNC = { estado: "ok", quando: 0 };
+function atualizarSync(estado) {
+  if (estado) SYNC.estado = estado;
+  const el = $("#syncInfo"); if (!el) return;
+  if (!userId) { el.textContent = ""; return; }
+  const n = pendentesLocais().size;
+  el.innerHTML = !navigator.onLine || SYNC.estado === "offline" ? `<b>Sem internet.</b> ${n ? `${n} alteração(ões) aguardando envio.` : "Tudo salvo neste aparelho."}`
+    : SYNC.estado === "enviando" || n ? "Sincronizando…" : "Tudo sincronizado";
+}
+async function writeDoc(key, data) {
+  data = clone(data);
+  salvarCache();
+  if (!sb || !userId) return;
+  if (writing[key]) { queued[key] = data; return; }
+  writing[key] = true; marcarPendente(key, true); atualizarSync("enviando");
+  let erro = null;
+  try { ({ error: erro } = await sb.from("documentos").upsert({ user_id: userId, chave: key, dados: data, atualizado_em: new Date().toISOString() })); }
+  catch (e) { erro = e; }
+  writing[key] = false;
+  if (erro) {
+    // sem conexão: a alteração fica guardada no aparelho e vai quando a internet voltar
+    atualizarSync("offline");
+    if (navigator.onLine && !/fetch|network|Failed/i.test(String(erro.message || erro))) toast("Não foi possível salvar na nuvem agora. A alteração ficou guardada neste aparelho.");
+  } else if (!queued[key]) { marcarPendente(key, false); atualizarSync("ok"); }
+  if (queued[key]) { const d = queued[key]; delete queued[key]; writeDoc(key, d); }
+}
+async function enviarPendentes() {
+  for (const k of pendentesLocais()) {
+    if (writing[k]) continue;
+    const dados = k === "config" ? S.config : S.months[k];
+    if (dados) await writeDoc(k, dados); else marcarPendente(k, false);
+  }
+  atualizarSync();
+}
+window.addEventListener("online", () => { atualizarSync("ok"); enviarPendentes(); carregarDados(true); });
+window.addEventListener("offline", () => atualizarSync("offline"));
+const saveConfig = () => writeDoc("config", S.config);
+const monthKey = d => "m_" + String(d).slice(0, 7);
+const saveMonth = k => writeDoc(k, S.months[k] || { sessoes: [] });
+function findSessao(id) { for (const [k, m] of Object.entries(S.months)) { const i = (m.sessoes||[]).findIndex(s => s.id === id); if (i >= 0) return { k, i, s: m.sessoes[i] }; } return null; }
+
+// Alterações deste aparelho ainda não confirmadas pela nuvem prevalecem sobre o que chega do servidor.
+const pendente = k => !!(writing[k] || queued[k] || (userId && pendentesLocais().has(k)));
+function applyDocs(docs) {
+  const antes = { config: S.config, months: S.months };
+  const meses = {}; let cfg = null, temCfg = false;
+  for (const [k, v] of docs) {
+    if (k === "config") { cfg = v; temCfg = true; }
+    else if (/^m_\d{4}-\d{2}$/.test(k)) meses[k] = normalizeMes(clone(v));
+  }
+  for (const k in antes.months) if (pendente(k)) meses[k] = antes.months[k];
+  S.months = meses;
+  S.config = pendente("config") && antes.config ? antes.config : normalizeConfig(temCfg ? clone(cfg) : null);
+}
+function aplicarUm(k, v) {
+  if (pendente(k)) return false;
+  if (k === "config") { const c = normalizeConfig(clone(v)); if (JSON.stringify(c) === JSON.stringify(S.config)) return false; S.config = c; return true; }
+  if (/^m_\d{4}-\d{2}$/.test(k)) { const m = normalizeMes(clone(v)); if (JSON.stringify(m) === JSON.stringify(S.months[k])) return false; S.months[k] = m; return true; }
+  return false;
+}
+
+/* Não redesenha enquanto a pessoa digita: guarda e aplica quando o campo perde o foco. */
+let pendingRender = false;
+function safeRender() {
+  const a = document.activeElement;
+  if (a && $("#main").contains(a) && a.matches("input:not([type=checkbox]),textarea,select")) { pendingRender = true; return; }
+  render();
+}
+document.addEventListener("focusout", () => setTimeout(() => { if (pendingRender) { const a = document.activeElement; if (!a || !$("#main").contains(a) || !a.matches("input:not([type=checkbox]),textarea,select")) { pendingRender = false; render(); } } }, 0));
+
+let carregando = false;
+async function carregarDados(silencioso) {
+  if (!sb || !userId || carregando) return; carregando = true;
+  const id = userId;
+  const { data, error } = await sb.from("documentos").select("chave,dados").then(r => r, e => ({ error: e }));
+  carregando = false;
+  if (id !== userId) return;
+  if (error) {
+    atualizarSync("offline");
+    if (!S.config) S.note = "Não foi possível falar com o servidor. Confira a internet; seus dados aparecem assim que a conexão voltar.";
+    S.loaded = true; if (!silencioso) safeRender(); return;
+  }
+  S.confirmado = true; S.note = "";
+  applyDocs(data.map(r => [r.chave, r.dados])); salvarCache(); S.loaded = true;
+  safeRender(); atualizarSync("ok"); enviarPendentes();
+}
+function assinarMudancas() {
+  canal?.unsubscribe?.();
+  canal = sb.channel("documentos-" + userId)
+    .on("postgres_changes", { event: "*", schema: "public", table: "documentos", filter: `user_id=eq.${userId}` }, p => {
+      const r = p.new; if (!r?.chave) return;
+      if (aplicarUm(r.chave, r.dados)) { salvarCache(); safeRender(); }
+    })
+    .subscribe();
+}
+let ultimoUsuario;
+const AUTH = { tela: "entrar", msg: "", erro: "", ocupado: false, recuperando: false };
+function trocarUsuario(session) {
+  const id = session?.user?.id || null;
+  if (id === ultimoUsuario) return;   // o Supabase avisa a mesma sessão mais de uma vez ao abrir
+  ultimoUsuario = id;
+  canal?.unsubscribe?.(); canal = null;
+  userId = id; S.email = session?.user?.email || "";
+  S.config = null; S.months = {}; S.confirmado = false; S.loaded = false; S.note = "";
+  if (!id) { S.loaded = true; render(); atualizarSync(); return; }
+  const c = ls.get(chaveCache());
+  if (c) { S.config = normalizeConfig(c.config); S.months = Object.fromEntries(Object.entries(c.months || {}).map(([k, v]) => [k, normalizeMes(v)])); S.loaded = true; render(); }
+  carregarDados(); assinarMudancas(); atualizarSync();
+}
+async function boot() {
+  if (!window.supabase || /^COLE_AQUI/.test(CONFIG.supabaseUrl) || /^COLE_AQUI/.test(CONFIG.supabaseKey)) {
+    $("#nav").hidden = true;
+    $("#main").innerHTML = `<div class="auth panel"><div class="brand-big"><i></i>Mesa de Estudos</div><h2>Falta configurar o Supabase</h2><p class="muted" style="margin-top:8px">${window.supabase ? "Abra o arquivo index.html e preencha a Project URL e a chave pública no bloco CONFIGURAÇÃO, perto do início do código." : "Não foi possível carregar a biblioteca do Supabase. Confira a internet e recarregue a página."}</p></div>`;
+    return;
+  }
+  sb = window.supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
+  sb.auth.onAuthStateChange((evento, session) => {
+    if (evento === "PASSWORD_RECOVERY") { AUTH.recuperando = true; AUTH.tela = "nova-senha"; AUTH.erro = ""; AUTH.msg = ""; userId = null; S.loaded = true; render(); return; }
+    if (AUTH.recuperando) return;
+    setTimeout(() => trocarUsuario(session), 0);
+  });
+  const { data } = await sb.auth.getSession();
+  if (!AUTH.recuperando) trocarUsuario(data?.session);
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && userId) { carregarDados(true); enviarPendentes(); } });
+}
+
+/* ---------- login ---------- */
+const MSG_AUTH = e => {
+  const m = String(e?.message || e || "");
+  if (/Invalid login credentials/i.test(m)) return "E-mail ou senha incorretos.";
+  if (/Email not confirmed/i.test(m)) return "Confirme seu e-mail pelo link que enviamos antes de entrar.";
+  if (/already registered|already exists/i.test(m)) return "Já existe uma conta com esse e-mail. Use “Entrar”.";
+  if (/at least 6|Password should be/i.test(m)) return "A senha precisa ter pelo menos 6 caracteres.";
+  if (/rate limit|security purposes/i.test(m)) return "Muitas tentativas seguidas. Aguarde um minuto e tente de novo.";
+  if (/fetch|network/i.test(m)) return "Sem conexão com o servidor. Confira a internet.";
+  return "Não foi possível concluir agora. Tente de novo.";
+};
+function viewAuth() {
+  const t = AUTH.tela;
+  const titulo = { entrar: "Entrar", criar: "Criar conta", esqueci: "Recuperar senha", "nova-senha": "Definir nova senha" }[t];
+  return `<div class="auth"><div class="brand-big"><i></i>Mesa de Estudos</div>
+  <form class="panel" id="authForm" novalidate>
+    <h2 style="margin-bottom:14px">${titulo}</h2>
+    <div class="grid" style="gap:12px">
+      ${t !== "nova-senha" ? `<label class="field"><span>E-mail</span><input type="email" id="aEmail" autocomplete="email" inputmode="email" required></label>` : ""}
+      ${t !== "esqueci" ? `<label class="field"><span>${t === "nova-senha" ? "Nova senha" : "Senha"}</span><input type="password" id="aSenha" autocomplete="${t === "entrar" ? "current-password" : "new-password"}" minlength="6" required></label>` : ""}
+    </div>
+    <p class="small" role="alert" style="margin-top:12px;min-height:1.2em;color:${AUTH.erro ? "var(--bad)" : "var(--good)"}">${esc(AUTH.erro || AUTH.msg)}</p>
+    <div class="row wrap between" style="margin-top:8px">
+      <div class="small">${t === "entrar" ? `<button type="button" class="linkbtn" data-tela="esqueci">Esqueci minha senha</button>` : t !== "nova-senha" ? `<button type="button" class="linkbtn" data-tela="entrar">Voltar para entrar</button>` : ""}</div>
+      <button class="btn primary" type="submit" ${AUTH.ocupado ? "disabled" : ""}>${{ entrar: "Entrar", criar: "Criar conta", esqueci: "Enviar link", "nova-senha": "Salvar senha" }[t]}</button>
+    </div>
+  </form>
+  ${t === "entrar" ? `<p class="muted small" style="margin-top:14px;text-align:center">Primeira vez aqui? <button type="button" class="linkbtn" data-tela="criar">Criar conta</button></p>` : ""}
+  </div>`;
+}
+function bindAuth() {
+  $$("[data-tela]").forEach(b => b.onclick = () => { AUTH.tela = b.dataset.tela; AUTH.erro = ""; AUTH.msg = ""; render(); });
+  $("#authForm").onsubmit = async e => {
+    e.preventDefault(); if (AUTH.ocupado) return;
+    const email = $("#aEmail")?.value.trim(), senha = $("#aSenha")?.value || "";
+    const volta = location.origin + location.pathname;
+    if (AUTH.tela !== "nova-senha" && !/^\S+@\S+\.\S+$/.test(email || "")) { AUTH.erro = "Informe um e-mail válido."; render(); return; }
+    if (AUTH.tela !== "esqueci" && senha.length < 6) { AUTH.erro = "A senha precisa ter pelo menos 6 caracteres."; render(); $("#aEmail") && ($("#aEmail").value = email); return; }
+    AUTH.ocupado = true; AUTH.erro = ""; AUTH.msg = ""; render(); if ($("#aEmail")) $("#aEmail").value = email;
+    try {
+      if (AUTH.tela === "entrar") { const { error } = await sb.auth.signInWithPassword({ email, password: senha }); if (error) throw error; }
+      else if (AUTH.tela === "criar") {
+        const { data, error } = await sb.auth.signUp({ email, password: senha, options: { emailRedirectTo: volta } }); if (error) throw error;
+        if (!data.session) { AUTH.tela = "entrar"; AUTH.msg = "Conta criada. Enviamos um link para o seu e-mail: abra o link para confirmar e depois entre aqui."; }
+      } else if (AUTH.tela === "esqueci") {
+        const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: volta }); if (error) throw error;
+        AUTH.tela = "entrar"; AUTH.msg = "Se houver uma conta com esse e-mail, enviamos um link para criar uma nova senha.";
+      } else {
+        const { error } = await sb.auth.updateUser({ password: senha }); if (error) throw error;
+        AUTH.recuperando = false; AUTH.tela = "entrar"; AUTH.msg = "Senha alterada.";
+        history.replaceState(null, "", location.pathname);
+        const { data } = await sb.auth.getSession(); AUTH.ocupado = false; ultimoUsuario = undefined; trocarUsuario(data?.session); toast("Senha alterada"); return;
+      }
+    } catch (err) { AUTH.erro = MSG_AUTH(err); }
+    AUTH.ocupado = false; render(); if ($("#aEmail") && email) $("#aEmail").value = email;
+  };
+}
+
+/* ---------- cálculos ---------- */
+const materiaExiste = s => !!mat(s.materiaId);
+function cicloStatus() {
+  const mins = {};
+  for (const s of sessoes()) if ((s.criadoEm || 0) >= S.config.cicloInicio) mins[s.materiaId] = (mins[s.materiaId] || 0) + (s.minutos || 0);
+  const itens = S.config.materias.filter(m => m.horasCiclo > 0).map(m => {
+    const alvo = m.horasCiclo * 60, feito = mins[m.id] || 0;
+    return { m, alvo, feito, frac: Math.min(1, feito / alvo) };
+  });
+  const total = itens.reduce((a, i) => a + i.alvo, 0), feito = itens.reduce((a, i) => a + Math.min(i.feito, i.alvo), 0);
+  const pend = itens.filter(i => i.frac < 1);
+  // a próxima é a mais atrasada; empate fica com a ordem do edital
+  const proxima = !pend.length ? null : S.config.cicloModo === "sequencia" ? pend[0] : pend.reduce((a, b) => b.frac < a.frac - 1e-9 ? b : a);
+  return { itens, total, feito, proxima, completo: itens.length > 0 && !pend.length };
+}
+function minutosPorDia() { const r = {}; for (const s of sessoes()) r[s.data] = (r[s.data] || 0) + (s.minutos || 0); return r; }
+function diasComEstudo() { return new Set(sessoes().map(s => s.data)); }
+function semanaAtual() {
+  const ini = weekStart(today()); const dias = [...Array(7)].map((_, i) => addDays(ini, i));
+  const pd = minutosPorDia(); const porDia = Object.fromEntries(dias.map(x => [x, pd[x] || 0]));
+  return { dias, porDia, total: Object.values(porDia).reduce((a, b) => a + b, 0) };
+}
+function revisoesLista() {
+  const out = [];
+  for (const s of sessoes()) if (materiaExiste(s)) (s.revs || []).forEach((r, idx) => { if (!r.feita) out.push({ s, r, idx }); });
+  return out.sort((a, b) => a.r.data.localeCompare(b.r.data));
+}
+function sequencia() {
+  const dias = diasComEstudo(); let n = 0, d = today();
+  if (!dias.has(d)) d = addDays(d, -1);
+  while (dias.has(d)) { n++; d = addDays(d, -1); }
+  return n;
+}
+function desempenho(desde = "") {
+  const r = {};
+  for (const s of sessoes()) {
+    if (desde && s.data < desde) continue;
+    const k = s.materiaId; r[k] ??= { min: 0, q: 0, a: 0, n: 0, topicos: {} };
+    r[k].min += s.minutos || 0; r[k].q += s.questoes || 0; r[k].a += s.acertos || 0; r[k].n++;
+    if (s.topicoId) { const t = r[k].topicos[s.topicoId] ??= { min: 0, q: 0, a: 0, ult: "" }; t.min += s.minutos || 0; t.q += s.questoes || 0; t.a += s.acertos || 0; if (s.data > t.ult) t.ult = s.data; }
+  }
+  return r;
+}
+/* Sugestão do dia: reparte o que falta da meta semanal pelos dias de estudo restantes, em blocos de 50 min, sempre para a matéria mais atrasada do ciclo. */
+function planoHoje() {
+  const w = semanaAtual(), meta = S.config.metaSemanal * 60, t = today();
+  const dias = S.config.diasEstudo.map(Number);
+  const restantes = w.dias.filter(d => d >= t && dias.includes(parseYmd(d).getDay()));
+  const hojeConta = dias.includes(parseYmd(t).getDay());
+  const hojeMin = w.porDia[t] || 0;
+  const antesHoje = w.total - hojeMin;
+  const falta = Math.max(0, meta - antesHoje);
+  const alvoHoje = hojeConta && restantes.length ? Math.ceil(falta / restantes.length / 10) * 10 : 0;
+  const resta = Math.max(0, alvoHoje - hojeMin);
+  const c = cicloStatus(); const proj = c.itens.filter(i => i.frac < 1).map(i => ({ ...i }));
+  const blocos = [];
+  let r = resta;
+  while (r > 0 && proj.length && blocos.length < 6) {
+    const min = Math.min(50, Math.max(20, r)); proj.sort((a, b) => a.feito / a.alvo - b.feito / b.alvo);
+    const it = proj[0]; const last = blocos[blocos.length - 1];
+    if (last && last.m.id === it.m.id) last.min += min; else blocos.push({ m: it.m, min });
+    it.feito += min; if (it.feito >= it.alvo) proj.shift(); r -= min;
+  }
+  return { alvoHoje, hojeMin, resta, blocos, hojeConta, falta: Math.max(0, meta - w.total), restantes: restantes.length };
+}
+
+/* ---------- cronômetro (fica neste aparelho) ---------- */
+let T = Object.assign({ running: false, startedAt: 0, acc: 0, materiaId: "", topicoId: "", alvoMin: 0, avisado: false }, ls.get("mesa-timer") || {});
+const saveT = () => ls.set("mesa-timer", T);
+const elapsed = () => T.acc + (T.running ? (Date.now() - T.startedAt) / 1000 : 0);
+let wake = null;
+async function keepAwake(on) { try { if (on && navigator.wakeLock && !wake) { wake = await navigator.wakeLock.request("screen"); wake.addEventListener?.("release", () => wake = null); } else if (!on && wake) { await wake.release(); wake = null; } } catch {} }
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && T.running) keepAwake(true); });
+let beepCtx = null;
+function beep() { try { beepCtx ||= new (window.AudioContext || window.webkitAudioContext)(); const o = beepCtx.createOscillator(), g = beepCtx.createGain(); o.frequency.value = 880; g.gain.setValueAtTime(.15, beepCtx.currentTime); g.gain.exponentialRampToValueAtTime(.001, beepCtx.currentTime + .8); o.connect(g).connect(beepCtx.destination); o.start(); o.stop(beepCtx.currentTime + .8); } catch {} }
+const baseTitle = document.title;
+let diaAtual = today();
+setInterval(() => { if (today() !== diaAtual) { diaAtual = today(); if (S.loaded) safeRender(); } }, 30000);
+window.addEventListener("storage", e => {
+  if (e.key !== "mesa-timer") return;
+  const novo = ls.get("mesa-timer"); if (!novo) return;
+  T = Object.assign({ running: false, startedAt: 0, acc: 0, materiaId: "", topicoId: "", alvoMin: 0, avisado: false }, novo);
+  if (view() === "cronometro") safeRender();
+});
+setInterval(() => {
+  const mini = $("#timerMini"); const e = elapsed();
+  mini.hidden = !(T.running || e > 0);
+  mini.textContent = (T.running ? "● " : "❚❚ ") + fmtClock(e);
+  document.title = T.running ? `${fmtClock(e)} · ${mat(T.materiaId)?.nome || "Estudando"}` : baseTitle;
+  const c = $("#clock"); if (c) { c.textContent = fmtClock(e); c.classList.toggle("running", T.running); }
+  const bar = $("#alvoBar"); if (bar && T.alvoMin) bar.style.width = Math.min(100, e / 60 / T.alvoMin * 100) + "%";
+  if (T.running && T.alvoMin && !T.avisado && e >= T.alvoMin * 60) { T.avisado = true; saveT(); beep(); toast(`Bloco de ${T.alvoMin} min concluído. Hora de uma pausa.`); }
+}, 500);
+
+/* ---------- navegação ---------- */
+const VIEWS = ["hoje","cronometro","registrar","ciclo","edital","revisoes","desempenho","historico","ajustes"];
+let draft = null;     // pré-preenchimento do registro
+let editId = null;    // sessão em edição
+let revPend = null;   // revisão a marcar como feita ao salvar
+let prevView = null;
+const view = () => { const h = location.hash.slice(1); return VIEWS.includes(h) ? h : "hoje"; };
+window.addEventListener("hashchange", () => {
+  if (prevView === "registrar" && view() !== "registrar") { editId = null; revPend = null; if (!draft?.doCronometro) draft = null; }
+  if (prevView === "ciclo" && view() !== "ciclo") cicloEd = null;
+  render(); window.scrollTo(0, 0);
+});
+const go = v => { if (location.hash.slice(1) === v) render(); else location.hash = v; };
+
+function render() {
+  const v = view(); prevView = v; pendingRender = false;
+  $$("#nav a[data-v]").forEach(a => a.dataset.v === v ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current"));
+  const main = $("#main");
+  if (sb && (!userId || AUTH.recuperando)) { $("#nav").hidden = true; main.innerHTML = viewAuth(); bindAuth(); return; }
+  $("#nav").hidden = !userId;
+  if (!S.loaded) return;
+  const rb = $("#revBadge");
+  if (S.config) { const n = revisoesLista().filter(x => x.r.data <= today()).length; rb.hidden = !n; rb.textContent = n; } else rb.hidden = true;
+  if (!S.config && !S.confirmado) {
+    main.innerHTML = S.note ? `<div class="empty"><h2>Não foi possível carregar seus dados</h2><p>${esc(S.note)}</p><p class="small">Para proteger o que você já registrou, a configuração inicial só aparece depois que seus dados forem lidos.</p><button class="btn" id="tentarDeNovo">Tentar de novo</button></div>`
+      : `<div class="empty"><h2>Carregando seus dados…</h2></div>`;
+    const tn = $("#tentarDeNovo"); if (tn) tn.onclick = () => { S.note = ""; render(); carregarDados(); };
+    return;
+  }
+  if (!S.config) { main.innerHTML = viewSetup(); bindSetup(); return; }
+  const note = S.note ? `<p class="notice">${esc(S.note)}</p>` : "";
+  // preserva campos alterados e ainda não salvos (o snapshot ou um clique ao lado redesenham a tela)
+  const keep = [];
+  $$("#main input[id]:not([type=file]):not([type=hidden]), #main textarea[id]:not([readonly]), #main select[id]").forEach(el => {
+    if (el.type === "checkbox") { if (el.checked !== el.defaultChecked) keep.push({ id: el.id, chk: el.checked, def: el.defaultChecked }); }
+    else if (el.tagName === "SELECT") { const def = [...el.options].find(o => o.defaultSelected)?.value ?? el.options[0]?.value; if (el.value !== def) keep.push({ id: el.id, val: el.value, def }); }
+    else if (el.value !== el.defaultValue) keep.push({ id: el.id, val: el.value, def: el.defaultValue });
+  });
+  const fns = { hoje: viewHoje, cronometro: viewCrono, registrar: viewRegistrar, ciclo: viewCiclo, edital: viewEdital, revisoes: viewRevisoes, desempenho: viewDesempenho, historico: viewHistorico, ajustes: viewAjustes };
+  main.innerHTML = fns[v]().replace("<!--note-->", note);
+  for (const k of keep) {
+    const el = document.getElementById(k.id); if (!el || !$("#main").contains(el)) continue;
+    if ("chk" in k) { if (el.defaultChecked === k.def) el.checked = k.chk; }
+    else if (el.tagName === "SELECT") { const def = [...el.options].find(o => o.defaultSelected)?.value ?? el.options[0]?.value; if (def === k.def && [...el.options].some(o => o.value === k.val)) el.value = k.val; }
+    else if (el.defaultValue === k.def) el.value = k.val;
+  }
+  (binders[v] || (() => {}))();
+}
+
+/* ---------- setup ---------- */
+function viewSetup() {
+  return `<div class="head"><div><div class="label">Primeiro acesso</div><h1>Monte sua mesa de estudos</h1></div></div>
+  ${S.note ? `<p class="notice">${esc(S.note)}</p>` : ""}
+  <div class="grid g2">
+    <div class="panel"><h2>Começar com a base do TCE-GO</h2>
+      <p class="muted" style="margin:8px 0 14px">Nove matérias com tópicos iniciais e horas por ciclo para Técnico de Controle Externo. Confira e ajuste tudo pelo edital 01/2026 na aba Edital verticalizado.</p>
+      <button class="btn primary" id="setupTce">Usar base do TCE-GO</button></div>
+    <div class="panel"><h2>Começar do zero</h2>
+      <p class="muted" style="margin:8px 0 14px">Cadastre suas próprias matérias e tópicos, cole o conteúdo programático e defina as horas de cada uma no ciclo.</p>
+      <button class="btn" id="setupZero">Criar mesa vazia</button></div>
+  </div>
+  <div class="panel" style="margin-top:16px"><h2>Já tem um backup?</h2><p class="muted" style="margin:8px 0 14px">Restaure um arquivo .json exportado em Ajustes.</p>${importControl()}</div>`;
+}
+function bindSetup() {
+  $("#setupTce").onclick = () => { S.config = defaultConfig(baseTCE()); saveConfig(); go("hoje"); render(); };
+  $("#setupZero").onclick = () => { S.config = defaultConfig([]); S.config.objetivo = ""; saveConfig(); go("edital"); render(); };
+  bindImport();
+}
+
+/* ---------- Hoje ---------- */
+function viewHoje() {
+  const c = cicloStatus(), w = semanaAtual(), rev = revisoesLista(), p = planoHoje();
+  const venc = rev.filter(x => x.r.data <= today());
+  const meta = S.config.metaSemanal * 60;
+  const seq = sequencia();
+  const prova = S.config.dataProva ? diffDays(S.config.dataProva, today()) : null;
+  const next = c.proxima ? `
+    <div class="next">
+      <div style="min-width:0"><div class="label">Próxima no ciclo</div>
+        <div style="margin-top:6px"><span class="hl">${esc(c.proxima.m.nome)}</span></div>
+        <div class="muted" style="margin-top:6px">${fmtH(c.proxima.feito)} de ${fmtH(c.proxima.alvo)} neste ciclo · faltam ${fmtH(c.proxima.alvo - c.proxima.feito)}</div></div>
+      <div class="row wrap"><button class="btn mark" data-study="${c.proxima.m.id}">Estudar agora</button><a class="btn" href="#registrar">Registrar manual</a></div>
+    </div>` : c.completo ? `<div class="next"><div><div class="label">Ciclo completo</div><div style="margin-top:6px"><span class="hl">Você fechou o ciclo</span></div></div><button class="btn mark" id="novoCiclo">Começar novo ciclo</button></div>`
+    : `<div class="empty"><h2>Nenhuma matéria no ciclo</h2><p>Cadastre matérias e defina horas por ciclo no Edital.</p><a class="btn primary" href="#edital">Abrir edital</a></div>`;
+  const max = Math.max(60, ...Object.values(w.porDia), p.alvoHoje);
+  const planoHtml = !p.hojeConta ? `<p class="muted">Hoje está fora dos seus dias de estudo. Se estudar, conta para a meta da semana.</p>`
+    : w.total >= meta ? `<p class="muted">Meta da semana cumprida. O que estudar a mais é bônus.</p>`
+    : p.resta <= 0 ? `<p class="muted">Meta de hoje cumprida (${fmtH(p.hojeMin)}). Para fechar a semana faltam ${fmtH(p.falta)}.</p>`
+    : `<p class="muted small">Para fechar ${S.config.metaSemanal}h na semana: ${fmtH(p.alvoHoje)} hoje${p.hojeMin ? `, já foram ${fmtH(p.hojeMin)}` : ""}.</p>
+       <div class="plan">${p.blocos.map(b => `<div class="blk"><span class="dot" style="background:${esc(b.m.cor)}"></span><span class="grow trunc">${esc(b.m.nome)}</span><span class="num muted small">${fmtH(b.min)}</span><button class="btn sm" data-study="${b.m.id}">Iniciar</button></div>`).join("") || `<p class="muted small">Cadastre horas por ciclo para receber a divisão por matéria.</p>`}</div>`;
+  return `<div class="head"><div><div class="label">${esc(S.config.objetivo || "Seus estudos")}</div><h1>${fmtDate(today()).replace(/^./, x => x.toUpperCase())}</h1></div>
+    ${prova != null ? `<div class="stat" style="text-align:right"><div class="v">${prova >= 0 ? prova : "—"}</div><div class="s">${prova > 0 ? "dias para a prova" : prova === 0 ? "a prova é hoje" : "a data da prova passou"}</div></div>` : `<a class="btn ghost sm" href="#ajustes">Definir data da prova</a>`}</div>
+  <!--note-->
+  <div class="grid">
+    ${next}
+    <div class="grid g3">
+      <div class="panel stat"><div class="label">Hoje</div><div class="v">${fmtH(w.porDia[today()])}</div><div class="s">${p.alvoHoje && p.hojeConta ? `de ${fmtH(p.alvoHoje)} sugeridos` : "estudado"}</div></div>
+      <div class="panel stat"><div class="label">Meta da semana</div><div class="v">${fmtH(w.total)} <span class="muted" style="font-size:1rem">/ ${S.config.metaSemanal}h</span></div>
+        <div class="bar" style="margin-top:8px"><i style="width:${Math.min(100, w.total / meta * 100)}%;${w.total >= meta ? "background:var(--good)" : ""}"></i></div></div>
+      <div class="panel stat"><div class="label">Constância</div><div class="v">${seq} ${seq === 1 ? "dia" : "dias"}</div><div class="s">seguidos estudando</div></div>
+    </div>
+    <div class="grid g2">
+      <div class="panel"><div class="ph"><h2>Plano de hoje</h2></div>${planoHtml}</div>
+      <div class="panel"><div class="ph"><h2>Revisões para fazer</h2><a class="btn ghost sm" href="#revisoes">Ver todas</a></div>
+        ${venc.length ? `<div class="list">${venc.slice(0, 5).map(revItem).join("")}</div>${venc.length > 5 ? `<p class="muted small" style="margin-top:8px">+${venc.length - 5} pendentes</p>` : ""}` : `<p class="muted">Nada para revisar hoje. ${rev.length ? `Próxima: ${fmtDate(rev[0].r.data)}.` : "Revisões aparecem aqui quando você registra uma sessão de teoria."}</p>`}</div>
+    </div>
+    <div class="grid g2">
+      <div class="panel"><div class="ph"><h2>Esta semana</h2><span class="muted">${fmtH(w.total)}</span></div>
+        ${colChart(w.dias.map(d => ({ v: w.porDia[d], t: w.porDia[d] ? fmtH(w.porDia[d]) : "", d: DOW[parseYmd(d).getDay()], now: d === today() })), max, p.hojeConta && p.alvoHoje ? p.alvoHoje : 0)}</div>
+      <div class="panel"><div class="ph"><h2>Constância</h2><span class="muted small">últimas 18 semanas</span></div>${heatmap(18)}</div>
+    </div>
+  </div>`;
+}
+function colChart(items, max, goal = 0) {
+  return `<div class="cols" style="grid-template-columns:repeat(${items.length},minmax(0,1fr))">${items.map(it => `<div class="col"><span class="t">${esc(it.t)}</span>
+    <div class="track">${goal ? `<span class="goal" style="bottom:${goal / max * 100}%" title="Meta do dia"></span>` : ""}<div class="b ${it.v ? "" : "zero"}" style="height:${it.v ? Math.max(3, it.v / max * 100) : 2}%;${it.color ? `background:${it.color}` : ""}"></div></div>
+    <span class="d ${it.now ? "now" : ""}">${esc(it.d)}</span></div>`).join("")}</div>`;
+}
+function heatmap(semanas) {
+  const pd = minutosPorDia(), dias = diasComEstudo(); const ini = addDays(weekStart(today()), -(semanas - 1) * 7), t = today(); let cells = "";
+  for (let i = 0; i < semanas * 7; i++) {
+    const x = addDays(ini, i); const m = pd[x] || 0;
+    const l = x > t ? -1 : !dias.has(x) ? 0 : m < 60 ? 1 : m < 120 ? 2 : m < 240 ? 3 : 4;
+    cells += l < 0 ? `<i style="visibility:hidden"></i>` : `<i data-l="${l}" class="${x === t ? "today" : ""}" title="${fmtDate(x)}: ${fmtH(m)}"></i>`;
+  }
+  return `<div class="heat-wrap"><div class="heat-days"><span>seg</span><span></span><span>qua</span><span></span><span>sex</span><span></span><span>dom</span></div><div class="heat">${cells}</div></div>
+    <div class="legend" style="margin-top:8px">0 <i style="background:var(--sunk)"></i><i style="background:color-mix(in srgb,var(--accent) 30%,var(--sunk))"></i><i style="background:color-mix(in srgb,var(--accent) 55%,var(--sunk))"></i><i style="background:color-mix(in srgb,var(--accent) 80%,var(--sunk))"></i><i style="background:var(--accent)"></i> 4h+</div>`;
+}
+function revItem({ s, r, idx }) {
+  const m = mat(s.materiaId), t = topico(m, s.topicoId); const atraso = diffDays(today(), r.data);
+  return `<div class="li row wrap"><span class="dot" style="background:${esc(m?.cor || "#888")}"></span>
+    <div class="grow" style="min-width:160px"><div class="trunc"><b>${esc(m?.nome)}</b>${t ? ` · ${esc(t.nome)}` : ""}</div>
+    <div class="muted small">Revisão de ${r.d} ${r.d === 1 ? "dia" : "dias"} · estudado em ${fmtDate(s.data)}</div></div>
+    ${atraso > 0 ? `<span class="pill bad">${atraso}d atrasada</span>` : atraso === 0 ? `<span class="pill warn">hoje</span>` : `<span class="pill neutral">${fmtDate(r.data)}</span>`}
+    <div class="row" style="gap:4px"><button class="btn sm primary" data-revreg="${s.id}:${idx}" title="Registrar a sessão de revisão">Revisar</button><button class="btn sm" data-revdone="${s.id}:${idx}" title="Marcar como feita sem registrar tempo">Feita</button></div></div>`;
+}
+function bindCommon() {
+  $$("[data-study]").forEach(b => b.onclick = () => {
+    if (T.running || elapsed() > 0) { if (T.materiaId !== b.dataset.study) toast("Há uma sessão em andamento. Encerre-a antes de trocar de matéria."); }
+    else { T.materiaId = b.dataset.study; T.topicoId = ""; saveT(); }
+    go("cronometro");
+  });
+  $$("[data-revdone]").forEach(b => b.onclick = () => { const [id, idx] = b.dataset.revdone.split(":"); marcarRevisao(id, +idx); render(); toast("Revisão marcada como feita"); });
+  $$("[data-revreg]").forEach(b => b.onclick = () => {
+    const [id, idx] = b.dataset.revreg.split(":"); const f = findSessao(id); if (!f) return;
+    revPend = { id, idx: +idx }; editId = null;
+    draft = { data: today(), materiaId: f.s.materiaId, topicoId: f.s.topicoId, categoria: "Revisão", minutos: "" };
+    go("registrar");
+  });
+  const nc = $("#novoCiclo"); if (nc) nc.onclick = () => novoCiclo(true);
+}
+function marcarRevisao(id, idx) { const f = findSessao(id); if (!f || !f.s.revs?.[idx]) return; f.s.revs[idx].feita = true; f.s.revs[idx].feitaEm = today(); saveMonth(f.k); }
+function novoCiclo(contar) { S.config.cicloInicio = Date.now(); if (contar) S.config.ciclosConcluidos = (S.config.ciclosConcluidos || 0) + 1; saveConfig(); render(); toast(contar ? "Ciclo concluído. Novo ciclo iniciado" : "Ciclo reiniciado"); }
+
+/* ---------- Cronômetro ---------- */
+function optsMaterias(sel) { const ms = S.config.materias; const orf = sel && !mat(sel) ? `<option value="${esc(sel)}" selected>Matéria removida</option>` : ""; return `<option value="">Escolha a matéria</option>${orf}` + ms.map(m => `<option value="${m.id}" ${m.id === sel ? "selected" : ""}>${esc(m.nome)}</option>`).join(""); }
+function optsTopicos(mid, sel) { const m = mat(mid); return `<option value="">Sem tópico específico</option>` + (m ? m.topicos.map(t => `<option value="${t.id}" ${t.id === sel ? "selected" : ""}>${t.feito ? "✓ " : ""}${esc(t.nome)}</option>`).join("") : ""); }
+function viewCrono() {
+  const e = elapsed();
+  const longo = e > MAX_TIMER_H * 3600;
+  return `<div class="head"><div><div class="label">Sessão de estudo</div><h1>Cronômetro</h1></div></div><!--note-->
+  <div class="panel">
+    <div class="form">
+      <label class="field span2"><span>Matéria</span><select id="tMat">${optsMaterias(T.materiaId)}</select></label>
+      <label class="field span2"><span>Tópico</span><select id="tTop">${optsTopicos(T.materiaId, T.topicoId)}</select></label>
+    </div>
+    <div class="clock ${T.running ? "running" : ""}" id="clock" aria-live="off">${fmtClock(e)}</div>
+    <div class="clock-sub">${T.alvoMin ? `Bloco de ${T.alvoMin} min<div class="bar" style="max-width:320px;margin:8px auto 0"><i id="alvoBar" style="width:${Math.min(100, e / 60 / T.alvoMin * 100)}%"></i></div>` : "Tempo livre"}</div>
+    ${longo ? `<p class="notice" style="margin:0 0 14px;text-align:center">O cronômetro passou de ${MAX_TIMER_H} horas. Se esqueceu de pausar, ajuste os minutos na tela de registro.</p>` : ""}
+    <div class="ctrl">
+      ${T.running ? `<button class="btn" id="tPause">Pausar</button>` : `<button class="btn primary" id="tStart">${e > 0 ? "Continuar" : "Iniciar"}</button>`}
+      <button class="btn mark" id="tStop" ${e < 1 ? "disabled" : ""}>Encerrar e registrar</button>
+      <button class="btn ghost" id="tReset" ${e < 1 ? "disabled" : ""}>Descartar</button>
+    </div>
+    <div class="pomo"><span class="muted" style="align-self:center;font-size:.85rem">Bloco:</span>${[0, 25, 50, 90].map(n => `<button class="chip" data-alvo="${n}" aria-pressed="${T.alvoMin === n}">${n ? n + " min" : "Livre"}</button>`).join("")}</div>
+  </div>
+  <p class="muted small" style="margin-top:12px">O cronômetro continua contando se você trocar de aba ou fechar a página neste aparelho. Ao fim do bloco toca um aviso sonoro.</p>`;
+}
+const binders = {
+  hoje: bindCommon,
+  cronometro() {
+    $("#tMat").onchange = e => { T.materiaId = e.target.value; T.topicoId = ""; saveT(); $("#tTop").innerHTML = optsTopicos(T.materiaId, ""); };
+    $("#tTop").onchange = e => { T.topicoId = e.target.value; saveT(); };
+    const st = $("#tStart"); if (st) st.onclick = () => {
+      if (!T.materiaId || !mat(T.materiaId)) { toast("Escolha a matéria antes de iniciar"); $("#tMat").focus(); return; }
+      try { beepCtx ||= new (window.AudioContext || window.webkitAudioContext)(); } catch {} // libera o som a partir do clique
+      T.running = true; T.startedAt = Date.now(); if (elapsed() < T.alvoMin * 60) T.avisado = false; saveT(); keepAwake(true); render();
+    };
+    const pa = $("#tPause"); if (pa) pa.onclick = () => { T.acc = elapsed(); T.running = false; saveT(); keepAwake(false); render(); };
+    $("#tStop").onclick = () => {
+      const min = Math.max(1, Math.round(elapsed() / 60));
+      draft = { data: today(), materiaId: T.materiaId, topicoId: T.topicoId, minutos: min, categoria: "Teoria", doCronometro: true }; editId = null; revPend = null;
+      T = { running: false, startedAt: 0, acc: 0, materiaId: T.materiaId, topicoId: "", alvoMin: T.alvoMin, avisado: false }; saveT(); keepAwake(false); go("registrar");
+    };
+    $("#tReset").onclick = e => { if (!armed(e.currentTarget, "Confirmar descarte")) return; T.running = false; T.acc = 0; T.startedAt = 0; T.avisado = false; saveT(); keepAwake(false); render(); };
+    $$("[data-alvo]").forEach(b => b.onclick = () => { T.alvoMin = +b.dataset.alvo; T.avisado = elapsed() >= T.alvoMin * 60 && T.alvoMin > 0; saveT(); render(); });
+  },
+  registrar: bindRegistrar, ciclo: bindCiclo, edital: bindEdital, revisoes: bindCommon, desempenho: bindDesempenho, historico: bindHistorico, ajustes: bindAjustes
+};
+
+/* ---------- Registrar ---------- */
+function viewRegistrar() {
+  let d = draft || { data: today(), categoria: "Teoria", minutos: "" };
+  const doCrono = !editId && draft?.doCronometro;
+  if (editId) { const f = findSessao(editId); if (f) d = f.s; else editId = null; }
+  const rev = !editId && CAT_REVISA.includes(d.categoria);
+  const revNote = revPend ? (() => { const f = findSessao(revPend.id); const r = f?.s.revs?.[revPend.idx]; return r ? `<p class="notice">Ao salvar, a revisão de ${r.d} ${r.d === 1 ? "dia" : "dias"} deste conteúdo será marcada como feita.</p>` : ""; })() : "";
+  return `<div class="head"><div><div class="label">${editId ? "Editar sessão" : "Nova sessão"}</div><h1>Registrar estudo</h1></div>${editId ? `<button class="btn ghost" id="rCancel">Cancelar edição</button>` : ""}</div><!--note-->
+  ${revNote}${doCrono ? `<p class="notice">Tempo vindo do cronômetro. Ele fica guardado aqui até você salvar ou <button type="button" class="btn ghost sm" id="rDescarta" style="padding:0 4px;vertical-align:baseline">descartar</button>.</p>` : ""}
+  <form class="panel" id="rForm" novalidate>
+    <div class="form">
+      <label class="field"><span>Data</span><input type="date" id="rData" value="${esc(d.data || today())}" max="${today()}"></label>
+      <label class="field span2"><span>Matéria</span><select id="rMat" required>${optsMaterias(d.materiaId)}</select></label>
+      <label class="field"><span>Tempo (minutos)</span><input type="number" id="rMin" min="0" max="1440" step="5" inputmode="numeric" value="${esc(d.minutos ?? "")}" placeholder="ex.: 50"></label>
+      <label class="field span2"><span>Tópico do edital</span><select id="rTop">${optsTopicos(d.materiaId, d.topicoId)}</select></label>
+      <div class="field span2"><span>Tipo de estudo</span><div class="chips" id="rCat" role="group" aria-label="Tipo de estudo">${CATEGORIAS.map(c => `<button type="button" class="chip" aria-pressed="${c === d.categoria}" data-c="${c}">${c}</button>`).join("")}</div></div>
+      <label class="field"><span>Questões feitas</span><input type="number" id="rQ" min="0" inputmode="numeric" value="${esc(d.questoes || "")}" placeholder="0"></label>
+      <label class="field"><span>Acertos</span><input type="number" id="rA" min="0" inputmode="numeric" value="${esc(d.acertos || "")}" placeholder="0"></label>
+      <label class="field"><span>Páginas lidas</span><input type="number" id="rP" min="0" inputmode="numeric" value="${esc(d.paginas || "")}" placeholder="0"></label>
+      <label class="field"><span>Aulas assistidas</span><input type="number" id="rAu" min="0" inputmode="numeric" value="${esc(d.aulas || "")}" placeholder="0"></label>
+      <label class="field span4"><span>Anotações</span><input type="text" id="rNota" value="${esc(d.nota || "")}" maxlength="500" placeholder="Dúvidas, artigos para reler, pegadinhas da banca…"></label>
+      <label class="check span2"><input type="checkbox" id="rDone" ${editId ? "disabled" : ""}> Marcar tópico como concluído no edital</label>
+      <label class="check span2"><input type="checkbox" id="rRev" ${rev ? "checked" : ""}> ${editId ? "Recalcular revisões pendentes pela nova data" : `Agendar revisões em ${S.config.revisoes.join(", ")} dias`}</label>
+    </div>
+    <p class="status" id="rErr" role="alert" style="color:var(--bad);min-height:1.2em;margin:12px 0 0"></p>
+    <div class="row end" style="margin-top:8px"><button class="btn primary" type="submit">${editId ? "Salvar alterações" : "Salvar sessão"}</button></div>
+  </form>`;
+}
+function bindRegistrar() {
+  let cat = $("#rCat [aria-pressed=true]")?.dataset.c || "Teoria";
+  $("#rMat").onchange = e => $("#rTop").innerHTML = optsTopicos(e.target.value, "");
+  $$("#rCat .chip").forEach(b => b.onclick = () => {
+    cat = b.dataset.c; $$("#rCat .chip").forEach(x => x.setAttribute("aria-pressed", x === b));
+    if (!editId) $("#rRev").checked = CAT_REVISA.includes(cat);
+  });
+  const c = $("#rCancel"); if (c) c.onclick = () => { editId = null; go("historico"); };
+  const dsc = $("#rDescarta"); if (dsc) dsc.onclick = () => { draft = null; render(); toast("Tempo do cronômetro descartado"); };
+  $("#rForm").onsubmit = e => {
+    e.preventDefault();
+    const n = id => Math.max(0, parseInt($(id).value, 10) || 0);
+    const s = { data: $("#rData").value || today(), materiaId: $("#rMat").value, topicoId: $("#rTop").value, categoria: cat, minutos: Math.min(1440, n("#rMin")), questoes: n("#rQ"), acertos: n("#rA"), paginas: n("#rP"), aulas: n("#rAu"), nota: $("#rNota").value.trim() };
+    const err = !s.materiaId ? "Escolha a matéria." : !editId && !mat(s.materiaId) ? "Essa matéria foi excluída. Escolha uma matéria cadastrada." : s.data > today() ? "A data não pode estar no futuro." : !s.minutos && !s.questoes && !s.paginas && !s.aulas ? "Informe o tempo, as questões, as páginas ou as aulas." : s.acertos > s.questoes ? "Acertos não podem passar do número de questões." : "";
+    if (err) { $("#rErr").textContent = err; return; }
+    const btn = $("#rForm button[type=submit]"); if (btn.disabled) return; btn.disabled = true;
+    if (editId) {
+      const f = findSessao(editId); if (!f) { editId = null; go("historico"); return; }
+      const novo = { ...f.s, ...s };
+      if ($("#rRev").checked && f.s.data !== s.data) novo.revs = (f.s.revs || []).map(r => r.feita ? r : { ...r, data: addDays(s.data, r.d) });
+      if (monthKey(s.data) !== f.k) { S.months[f.k].sessoes.splice(f.i, 1); saveMonth(f.k); const k = monthKey(s.data); (S.months[k] ??= { sessoes: [] }).sessoes.push(novo); saveMonth(k); }
+      else { S.months[f.k].sessoes[f.i] = novo; saveMonth(f.k); }
+      editId = null; toast("Sessão atualizada"); go("historico"); return;
+    }
+    s.id = uid(); s.criadoEm = Date.now();
+    s.revs = $("#rRev").checked ? S.config.revisoes.map(d => ({ d, data: addDays(s.data, d), feita: false })) : [];
+    const k = monthKey(s.data); (S.months[k] ??= { sessoes: [] }).sessoes.push(s); saveMonth(k);
+    if (revPend) { marcarRevisao(revPend.id, revPend.idx); revPend = null; }
+    if ($("#rDone").checked && s.topicoId) { const t = topico(mat(s.materiaId), s.topicoId); if (t && !t.feito) { t.feito = true; saveConfig(); } }
+    draft = null; toast(s.minutos ? `Sessão de ${fmtH(s.minutos)} salva` : "Sessão salva"); go("hoje");
+  };
+}
+
+/* ---------- Ciclo ---------- */
+let cicloEd = null; // rascunho da edição: { modo, itens:[{id, nome, cor, horas, antes}] }
+function abrirEdicaoCiclo() {
+  cicloEd = { modo: S.config.cicloModo, itens: S.config.materias.map(m => ({ id: m.id, nome: m.nome, cor: m.cor, horas: m.horasCiclo, antes: m.horasCiclo || 2 })) };
+  render();
+}
+function viewCiclo() {
+  if (cicloEd) return viewCicloEdit();
+  const c = cicloStatus();
+  const nCiclo = (S.config.ciclosConcluidos || 0);
+  const fora = S.config.materias.filter(m => !(m.horasCiclo > 0));
+  return `<div class="head"><div><div class="label">${nCiclo} ${nCiclo === 1 ? "ciclo concluído" : "ciclos concluídos"} · atual desde ${fmtDate(ymd(new Date(S.config.cicloInicio)))}</div><h1>Ciclo de estudos</h1></div>
+    <div class="row wrap"><span class="num" style="font-size:1.1rem">${fmtH(c.feito)} / ${fmtH(c.total)}</span><button class="btn primary" id="editCiclo">Editar ciclo</button>${c.completo ? `<button class="btn mark" id="novoCiclo">Começar novo ciclo</button>` : `<button class="btn" id="resetCiclo">Reiniciar ciclo</button>`}</div></div><!--note-->
+  <p class="muted" style="margin-top:-8px;max-width:65ch">${S.config.cicloModo === "sequencia" ? "Ordem fixa: a próxima matéria é a primeira da lista que ainda não cumpriu as horas." : "Mais atrasada primeiro: a próxima matéria é a que tem menor parte das horas cumprida."} Só contam sessões registradas depois do início do ciclo.</p>
+  ${c.itens.length ? `<div class="panel" style="margin-top:12px"><div class="bar" style="height:10px;margin-bottom:16px"><i style="width:${c.total ? c.feito / c.total * 100 : 0}%"></i></div>
+  <div class="list">${c.itens.map((i, n) => `<div class="li row wrap">
+    ${S.config.cicloModo === "sequencia" ? `<span class="num muted small" style="width:1.4em;text-align:right">${n + 1}</span>` : ""}<span class="dot" style="background:${esc(i.m.cor)}"></span>
+    <div class="grow" style="min-width:160px"><div class="row between"><b class="trunc">${esc(i.m.nome)}</b><span class="num muted small">${fmtH(i.feito)} / ${fmtH(i.alvo)}</span></div>
+      <div class="bar" style="margin-top:6px"><i style="width:${i.frac * 100}%;background:${i.frac >= 1 ? "var(--good)" : esc(i.m.cor)}"></i></div></div>
+    ${i.frac >= 1 ? `<span class="pill good">cumprida</span>` : `<button class="btn sm ${c.proxima?.m.id === i.m.id ? "mark" : ""}" data-study="${i.m.id}">Estudar</button>`}
+  </div>`).join("")}</div>
+  ${fora.length ? `<p class="muted small" style="margin-top:12px">Fora do ciclo: ${fora.map(m => esc(m.nome)).join(", ")}.</p>` : ""}</div>`
+  : `<div class="empty" style="margin-top:12px"><h2>Ciclo vazio</h2><p>Escolha as matérias e as horas de cada uma.</p><button class="btn primary" id="editCiclo2">Montar ciclo</button></div>`}`;
+}
+function viewCicloEdit() {
+  const ed = cicloEd; const dentro = ed.itens.filter(i => i.horas > 0), fora = ed.itens.filter(i => !(i.horas > 0));
+  const total = dentro.reduce((a, i) => a + i.horas, 0);
+  const row = (i, idx) => { const dIdx = dentro.indexOf(i); return `<div class="li row wrap" data-row="${i.id}">
+    <span class="dot" style="background:${esc(i.cor)}"></span><b class="grow trunc" style="min-width:140px">${esc(i.nome)}</b>
+    ${i.horas > 0 ? `<label class="row" style="gap:6px"><span class="muted small">horas</span><input type="number" class="num" min="0.5" max="40" step="0.5" id="ch_${i.id}" data-ch="${i.id}" value="${i.horas}" style="width:84px"></label>
+      <span class="row" style="gap:2px"><button class="btn ghost icon sm" data-cmove="${i.id}:-1" ${dIdx === 0 ? "disabled" : ""} aria-label="Subir">↑</button><button class="btn ghost icon sm" data-cmove="${i.id}:1" ${dIdx === dentro.length - 1 ? "disabled" : ""} aria-label="Descer">↓</button></span>
+      <button class="btn ghost sm" data-cout="${i.id}">Tirar do ciclo</button>`
+    : `<button class="btn sm" data-cin="${i.id}">Incluir no ciclo</button>`}</div>`; };
+  return `<div class="head"><div><div class="label">Editando · total de <span id="cTotal" class="num">${String(total).replace(".", ",")}</span>h por ciclo</div><h1>Editar ciclo</h1></div>
+    <div class="row wrap"><button class="btn ghost" id="cCancel">Cancelar</button><button class="btn primary" id="cSave">Salvar ciclo</button></div></div><!--note-->
+  <div class="grid">
+    <div class="panel"><h2>Como escolher a próxima matéria</h2>
+      <div class="chips" style="margin-top:10px" role="group" aria-label="Regra do ciclo">
+        <button class="chip" data-modo="atrasada" aria-pressed="${ed.modo === "atrasada"}">Mais atrasada primeiro</button>
+        <button class="chip" data-modo="sequencia" aria-pressed="${ed.modo === "sequencia"}">Ordem fixa da lista</button></div>
+      <p class="muted small" style="margin-top:8px">${ed.modo === "sequencia" ? "Você segue a lista de cima para baixo; a ordem abaixo importa." : "A página sugere a matéria com menor parte das horas cumprida; a ordem só desempata."}</p></div>
+    <div class="panel"><div class="ph"><h2>Matérias no ciclo</h2><span class="num muted">${dentro.length}</span></div>
+      ${dentro.length ? `<div class="list">${dentro.map(row).join("")}</div>` : `<p class="muted">Nenhuma matéria no ciclo. Inclua abaixo.</p>`}</div>
+    ${fora.length ? `<div class="panel"><div class="ph"><h2>Fora do ciclo</h2><span class="num muted">${fora.length}</span></div><div class="list">${fora.map(row).join("")}</div></div>` : ""}
+    <div class="panel"><h2>Distribuir horas automaticamente</h2>
+      <p class="muted small" style="margin:6px 0 12px">Reparte um total entre as matérias do ciclo, em múltiplos de 30 min. Você ainda pode ajustar cada uma antes de salvar.</p>
+      <div class="form"><label class="field"><span>Total de horas</span><input type="number" id="cDistTot" min="1" max="200" step="1" value="${Math.round(total) || S.config.metaSemanal}"></label>
+        <div class="field span2"><span>Critério</span><div class="chips" id="cDistModo" role="group" aria-label="Critério"><button type="button" class="chip" data-dm="igual" aria-pressed="true">Igual para todas</button><button type="button" class="chip" data-dm="fracas" aria-pressed="false">Mais tempo às mais fracas</button><button type="button" class="chip" data-dm="prop" aria-pressed="false">Manter proporção atual</button></div></div>
+        <div class="field" style="justify-content:flex-end"><button class="btn" id="cDist" ${dentro.length ? "" : "disabled"}>Distribuir</button></div></div>
+      <p class="muted small" style="margin-top:8px">“Mais fracas” usa seu % de acertos: quem tem menos acertos recebe mais horas (matéria sem questões conta como 65%).</p></div>
+    <form class="panel" id="cNova"><h2 style="margin-bottom:12px">Nova matéria no ciclo</h2>
+      <div class="form"><label class="field span2"><span>Nome</span><input type="text" id="cnNome" maxlength="80" placeholder="ex.: Contabilidade Pública"></label>
+        <label class="field"><span>Horas</span><input type="number" id="cnH" min="0.5" step="0.5" value="2"></label>
+        <div class="field" style="justify-content:flex-end"><button class="btn" type="submit">Adicionar</button></div></div>
+      <p class="muted small" style="margin-top:8px">Ela também entra no Edital, onde você cadastra os tópicos.</p></form>
+    <div class="panel"><label class="check"><input type="checkbox" id="cZerar"> Ao salvar, zerar o progresso e começar o ciclo do início</label></div>
+  </div>`;
+}
+function bindCiclo() {
+  if (cicloEd) return bindCicloEdit();
+  bindCommon();
+  const b = $("#resetCiclo"); if (b) b.onclick = () => { if (armed(b, "Confirmar: zerar progresso")) novoCiclo(false); };
+  ["#editCiclo", "#editCiclo2"].forEach(id => { const e = $(id); if (e) e.onclick = abrirEdicaoCiclo; });
+}
+function bindCicloEdit() {
+  const ed = cicloEd; const it = id => ed.itens.find(i => i.id === id);
+  const lerHoras = () => $$("[data-ch]").forEach(inp => { const v = parseFloat(String(inp.value).replace(",", ".")); const i = it(inp.dataset.ch); if (i && v > 0) i.horas = Math.min(40, Math.round(v * 2) / 2); });
+  const total = () => ed.itens.filter(i => i.horas > 0).reduce((a, i) => a + i.horas, 0);
+  $$("[data-ch]").forEach(inp => inp.oninput = () => { lerHoras(); $("#cTotal").textContent = String(total()).replace(".", ","); });
+  $$("[data-modo]").forEach(b => b.onclick = () => { lerHoras(); ed.modo = b.dataset.modo; render(); });
+  $$("[data-cmove]").forEach(b => b.onclick = () => {
+    lerHoras(); const [id, dir] = b.dataset.cmove.split(":"); const dentro = ed.itens.filter(i => i.horas > 0);
+    const k = dentro.findIndex(i => i.id === id), alvo = dentro[k + +dir]; if (!alvo) return;
+    const a = ed.itens.findIndex(i => i.id === id), c = ed.itens.indexOf(alvo); [ed.itens[a], ed.itens[c]] = [ed.itens[c], ed.itens[a]]; render();
+  });
+  $$("[data-cout]").forEach(b => b.onclick = () => { lerHoras(); const i = it(b.dataset.cout); i.antes = i.horas; i.horas = 0; render(); });
+  $$("[data-cin]").forEach(b => b.onclick = () => { lerHoras(); const i = it(b.dataset.cin); i.horas = i.antes || 2; render(); });
+  let dm = "igual";
+  $$("#cDistModo .chip").forEach(b => b.onclick = () => { dm = b.dataset.dm; $$("#cDistModo .chip").forEach(x => x.setAttribute("aria-pressed", x === b)); });
+  $("#cDist").onclick = () => {
+    lerHoras(); const tot = Math.max(1, parseFloat($("#cDistTot").value) || 0); const dentro = ed.itens.filter(i => i.horas > 0); if (!dentro.length) return;
+    const dp = desempenho();
+    const peso = i => dm === "igual" ? 1 : dm === "prop" ? i.horas : (() => { const d = dp[i.id]; const p = d?.q ? d.a / d.q : .65; return 0.5 + Math.max(0, 1 - p) * 2; })();
+    const soma = dentro.reduce((a, i) => a + peso(i), 0);
+    // reparte em meias horas pelo método do maior resto, mínimo de 30 min por matéria
+    const meias = Math.round(tot * 2); const bruto = dentro.map(i => ({ i, q: Math.max(1, meias * peso(i) / soma) }));
+    bruto.forEach(x => x.n = Math.max(1, Math.floor(x.q)));
+    let resto = meias - bruto.reduce((a, x) => a + x.n, 0);
+    [...bruto].sort((a, b) => (b.q - Math.floor(b.q)) - (a.q - Math.floor(a.q))).forEach(x => { if (resto > 0) { x.n++; resto--; } });
+    while (resto < 0) { const x = bruto.filter(y => y.n > 1).sort((a, b) => b.n - a.n)[0]; if (!x) break; x.n--; resto++; }
+    bruto.forEach(x => x.i.horas = x.n / 2); render(); toast(`${String(total()).replace(".", ",")}h distribuídas`);
+  };
+  $("#cNova").onsubmit = e => { e.preventDefault(); lerHoras(); const nome = $("#cnNome").value.trim(); if (!nome) { $("#cnNome").focus(); return; }
+    if (ed.itens.some(i => chave(i.nome) === chave(nome))) { toast("Já existe uma matéria com esse nome"); return; }
+    ed.itens.push({ id: uid(), nome, cor: CORES[ed.itens.length % CORES.length], horas: Math.max(0.5, Math.round((parseFloat($("#cnH").value) || 2) * 2) / 2), antes: 2, nova: true }); render(); };
+  $("#cCancel").onclick = () => { cicloEd = null; render(); };
+  $("#cSave").onclick = () => {
+    lerHoras();
+    const atuais = Object.fromEntries(S.config.materias.map(m => [m.id, m]));
+    // matérias excluídas no Edital durante a edição continuam excluídas
+    S.config.materias = ed.itens.filter(i => atuais[i.id] || i.nova).map(i => { const m = atuais[i.id] || { id: i.id, nome: i.nome, cor: i.cor, topicos: [] }; m.horasCiclo = i.horas > 0 ? i.horas : 0; return m; });
+    const ids = new Set(ed.itens.map(i => i.id));
+    Object.values(atuais).forEach(m => { if (!ids.has(m.id)) S.config.materias.push(m); });
+    S.config.cicloModo = ed.modo;
+    if ($("#cZerar").checked) S.config.cicloInicio = Date.now();
+    cicloEd = null; saveConfig(); render(); toast("Ciclo salvo");
+  };
+}
+
+/* ---------- Edital ---------- */
+const openMats = new Set();
+let renTopic = null;
+function viewEdital() {
+  const dp = desempenho();
+  const allT = S.config.materias.flatMap(m => m.topicos), feitos = allT.filter(t => t.feito).length;
+  const totH = S.config.materias.reduce((a, m) => a + m.horasCiclo, 0);
+  return `<div class="head"><div><div class="label">${feitos} de ${allT.length} tópicos concluídos · ciclo de ${String(totH).replace(".", ",")}h</div><h1>Edital verticalizado</h1></div>
+    <div class="row wrap"><span class="num" style="font-size:1.4rem;font-weight:700">${allT.length ? Math.round(feitos / allT.length * 100) : 0}%</span>${IMP.aberto ? "" : `<button class="btn primary" id="impAbrir">Importar edital</button>`}</div></div><!--note-->
+  ${viewImport()}
+  ${allT.length ? `<div class="bar" style="height:10px;margin:-8px 0 18px"><i style="width:${feitos / allT.length * 100}%"></i></div>` : ""}
+  <div class="panel">
+    ${S.config.materias.length ? S.config.materias.map((m, mi) => {
+      const d = dp[m.id] || { min: 0, q: 0, a: 0, topicos: {} }; const f = m.topicos.filter(t => t.feito).length; const p = pct(d.a, d.q);
+      return `<details class="mat" data-mid="${m.id}" ${openMats.has(m.id) ? "open" : ""}>
+        <summary><span class="chev" aria-hidden="true">▸</span><span class="dot" style="background:${esc(m.cor)}"></span>
+          <div class="grow" style="min-width:0"><div class="row between wrap" style="gap:4px 10px"><b>${esc(m.nome)}</b>
+            <span class="muted small">${f}/${m.topicos.length} tópicos · ${fmtH(d.min)} · ${String(m.horasCiclo).replace(".", ",")}h/ciclo${p != null ? ` · <span class="pill ${accClass(p)}">${p}%</span>` : ""}</span></div>
+            <div class="bar" style="margin-top:6px"><i style="width:${m.topicos.length ? f / m.topicos.length * 100 : 0}%;background:${esc(m.cor)}"></i></div></div></summary>
+        <div class="topics">
+          ${m.topicos.map((t, ti) => { const td = d.topicos[t.id]; const tp = td ? pct(td.a, td.q) : null; const ren = renTopic === t.id; return `<div class="topic ${t.feito ? "done" : ""}">
+            <input type="checkbox" id="t_${t.id}" data-tog="${m.id}:${t.id}" ${t.feito ? "checked" : ""} aria-label="Concluído: ${esc(t.nome)}">
+            ${ren ? `<input type="text" class="tn" id="ren_${t.id}" data-ren="${m.id}:${t.id}" value="${esc(t.nome)}" aria-label="Novo nome do tópico">` : `<label class="tn" for="t_${t.id}">${esc(t.nome)}</label>`}
+            <span class="meta">${td ? fmtH(td.min) : ""}${tp != null ? ` · <span class="pill ${accClass(tp)}">${tp}%</span>` : ""}${td?.ult ? ` · ${fmtShort(td.ult)}` : ""}</span>
+            <span class="acts">${ti > 0 ? `<button class="btn ghost icon sm" data-tmove="${m.id}:${t.id}:-1" aria-label="Subir tópico">↑</button>` : ""}
+              <button class="btn ghost icon sm" data-tren="${t.id}" aria-label="Renomear tópico">✎</button>
+              <button class="btn ghost icon sm" data-deltop="${m.id}:${t.id}" aria-label="Remover tópico">×</button></span></div>`; }).join("") || `<p class="muted" style="margin:4px 8px">Sem tópicos ainda.</p>`}
+          <div class="form" style="margin-top:10px">
+            <label class="field span4"><span>Adicionar tópicos (um por linha, pode colar direto do edital)</span><textarea id="add_${m.id}" placeholder="1. Atos administrativos&#10;2. Poderes da Administração"></textarea></label>
+            <label class="field span2"><span>Nome da matéria</span><input type="text" id="n_${m.id}" value="${esc(m.nome)}"></label>
+            <label class="field"><span>Horas no ciclo</span><input type="number" min="0" step="0.5" id="h_${m.id}" value="${m.horasCiclo}"></label>
+            <label class="field"><span>Cor</span><select id="c_${m.id}">${CORES.map((c, i) => `<option value="${c}" ${c === m.cor ? "selected" : ""}>${NOMES_COR[i]}</option>`).join("")}</select></label>
+            <div class="field span4"><div class="row between wrap">
+              <div class="row" style="gap:4px"><button class="btn sm" data-mmove="${m.id}:-1" ${mi === 0 ? "disabled" : ""}>↑ Subir</button><button class="btn sm" data-mmove="${m.id}:1" ${mi === S.config.materias.length - 1 ? "disabled" : ""}>↓ Descer</button></div>
+              <div class="row wrap end" style="gap:6px"><button class="btn danger sm" data-delmat="${m.id}">Excluir matéria</button><button class="btn primary sm" data-savemat="${m.id}">Salvar</button></div></div></div>
+          </div>
+        </div></details>`; }).join("") : `<div class="empty" style="border:0;padding:12px"><h2>Nenhuma matéria ainda</h2><p>Importe o PDF do edital para cadastrar matérias e tópicos de uma vez, ou adicione uma por uma abaixo.</p>${IMP.aberto ? "" : `<button class="btn primary" id="impAbrir2">Importar edital</button>`}</div>`}
+  </div>
+  <form class="panel" id="newMat" style="margin-top:16px"><h2 style="margin-bottom:12px">Nova matéria</h2>
+    <div class="form"><label class="field span2"><span>Nome</span><input type="text" id="nmNome" placeholder="ex.: Contabilidade Pública" maxlength="80"></label>
+      <label class="field"><span>Horas no ciclo</span><input type="number" id="nmH" min="0" step="0.5" value="2"></label>
+      <div class="field" style="justify-content:flex-end"><button class="btn primary" type="submit">Adicionar</button></div></div></form>`;
+}
+function bindEdital() {
+  bindImportEdital();
+  $$("details.mat").forEach(d => d.ontoggle = () => d.open ? openMats.add(d.dataset.mid) : openMats.delete(d.dataset.mid));
+  $$("[data-tog]").forEach(cb => cb.onchange = () => { const [mid, tid] = cb.dataset.tog.split(":"); const t = topico(mat(mid), tid); if (!t) return; t.feito = cb.checked; saveConfig(); render(); });
+  $$("[data-deltop]").forEach(b => b.onclick = () => { if (!armed(b, "Remover?")) return; const [mid, tid] = b.dataset.deltop.split(":"); const m = mat(mid); m.topicos = m.topicos.filter(t => t.id !== tid); saveConfig(); render(); });
+  $$("[data-tmove]").forEach(b => b.onclick = () => { const [mid, tid] = b.dataset.tmove.split(":"); const m = mat(mid); const i = m.topicos.findIndex(t => t.id === tid); if (i > 0) { [m.topicos[i - 1], m.topicos[i]] = [m.topicos[i], m.topicos[i - 1]]; saveConfig(); render(); } });
+  $$("[data-tren]").forEach(b => b.onclick = () => { renTopic = b.dataset.tren; render(); const inp = $("#ren_" + renTopic); if (inp) { inp.focus(); inp.select(); } });
+  $$("[data-ren]").forEach(inp => {
+    const done = (save, suave) => {
+      const [mid, tid] = inp.dataset.ren.split(":"); if (renTopic !== tid) return;
+      const t = topico(mat(mid), tid); renTopic = null; const v = inp.value.trim();
+      if (save && t && v && v !== t.nome) { t.nome = v; saveConfig(); }
+      if (!suave) { render(); return; }
+      // troca só o campo pelo rótulo, sem redesenhar: o clique que tirou o foco continua valendo
+      const lb = document.createElement("label"); lb.className = "tn"; lb.htmlFor = "t_" + tid; lb.textContent = t?.nome || v; inp.replaceWith(lb);
+    };
+    inp.onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); done(true); } else if (e.key === "Escape") { e.preventDefault(); done(false); } };
+    inp.onblur = () => done(true, true);
+  });
+  $$("[data-mmove]").forEach(b => b.onclick = () => { const [mid, dir] = b.dataset.mmove.split(":"); const a = S.config.materias; const i = a.findIndex(m => m.id === mid), j = i + +dir; if (j < 0 || j >= a.length) return; [a[i], a[j]] = [a[j], a[i]]; saveConfig(); render(); });
+  $$("[data-savemat]").forEach(b => b.onclick = () => {
+    const m = mat(b.dataset.savemat); const ta = $("#add_" + m.id);
+    const nome = $("#n_" + m.id).value.trim();
+    if (nome && S.config.materias.some(o => o.id !== m.id && chave(o.nome) === chave(nome))) { toast("Já existe outra matéria com esse nome"); return; }
+    const vistos = new Set(m.topicos.map(t => chave(t.nome)));
+    const novos = [];
+    for (const l of ta.value.split("\n")) {
+      const n = l.replace(/^\s*(?:\d+(?:\.\d+)*[.)\-–]?|[a-z]\)|[-–•*])\s+/i, "").replace(/[;.]\s*$/, "").trim();
+      const k = chave(n); if (n.length < 2 || vistos.has(k)) continue; vistos.add(k); novos.push(n);
+    }
+    novos.forEach(n => m.topicos.push({ id: uid(), nome: n, feito: false }));
+    if (nome) m.nome = nome;
+    m.horasCiclo = Math.max(0, parseFloat(String($("#h_" + m.id).value).replace(",", ".")) || 0); m.cor = $("#c_" + m.id).value;
+    ta.value = ""; saveConfig(); render(); toast(novos.length ? `${novos.length} tópico(s) adicionados` : "Matéria salva");
+  });
+  $$("[data-delmat]").forEach(b => b.onclick = () => {
+    const mid = b.dataset.delmat; const n = sessoes().filter(s => s.materiaId === mid).length;
+    if (!armed(b, n ? `Excluir (${n} sessões ficam sem matéria)` : "Confirmar exclusão")) return;
+    S.config.materias = S.config.materias.filter(m => m.id !== mid); openMats.delete(mid); saveConfig(); render(); toast("Matéria excluída");
+  });
+  $("#newMat").onsubmit = e => { e.preventDefault(); const nome = $("#nmNome").value.trim(); if (!nome) { $("#nmNome").focus(); return; }
+    if (S.config.materias.some(m => chave(m.nome) === chave(nome))) { toast("Já existe uma matéria com esse nome"); return; }
+    const m = { id: uid(), nome, horasCiclo: Math.max(0, parseFloat(String($("#nmH").value).replace(",", ".")) || 0), cor: CORES[S.config.materias.length % CORES.length], topicos: [] };
+    S.config.materias.push(m); openMats.add(m.id); saveConfig(); render(); toast("Matéria adicionada"); };
+}
+
+/* ---------- Importar edital ---------- */
+const IMP = { aberto: false, texto: "", origem: "", cargo: "", status: "", erro: "", ocupado: false, resultado: null, modo: "somar", abertos: new Set(), ctrl: null };
+const semAcento = s => [...String(s)].map(ch => ch.normalize("NFD")[0]).join("");   // mesmo comprimento do original
+const chave = s => semAcento(String(s).toLowerCase()).replace(/[^a-z0-9]/g, "");
+const MINUS = new Set("a ao aos as à às com da das de do dos e em na nas no nos o os ou para pela pelas pelo pelos por sobre".split(" "));
+const NAO_SIGLA = new Set(["lei","uso","seu","sua","não","sem","ser","ter","fim","rio","mar"]);
+function tituloCaso(s) {
+  s = s.trim().replace(/\s+/g, " ").replace(/^(?:\d+(?:\.\d+)*\.?|[IVXLC]+\s*[.)\-–]|[a-z]\s*[.)\-–])\s+/i, "").replace(/[\s:.\-–]+$/, "");
+  if (/[a-zà-ú]/.test(s)) return s;
+  return s.split(" ").map((w, i) => { const l = w.toLowerCase();
+    if (w.includes("-") && w.length <= 8) return w;
+    const nu = w.replace(/[^A-Za-zÀ-ú]/g, "");
+    if (nu.length >= 2 && nu.length <= 4 && /^[A-ZÀ-Ú]+$/.test(nu) && (nu.length <= 3 || /^\(.*\)$/.test(w)) && !MINUS.has(nu.toLowerCase()) && !NAO_SIGLA.has(nu.toLowerCase())) return w;
+    if (i > 0 && MINUS.has(l)) return l;
+    return l.charAt(0).toUpperCase() + l.slice(1); }).join(" ");
+}
+function casarMateria(nome) {
+  const k = chave(nome); let parcial = null;
+  for (const m of S.config.materias) { const mk = chave(m.nome); if (mk === k) return m.id; if (!parcial && k.length > 5 && mk.length > 5 && (k.includes(mk) || mk.includes(k))) parcial = m.id; }
+  return parcial;
+}
+function mesclarMaterias(lista) {
+  const mapa = new Map();
+  for (const x of lista) {
+    const nome = tituloCaso(String(x?.nome || "")); const k = chave(nome); if (k.length < 3) continue;
+    const alvo = mapa.get(k) || { nome, topicos: [], vistos: new Set() }; mapa.set(k, alvo);
+    for (let t of Array.isArray(x.topicos) ? x.topicos : []) {
+      t = String(t || "").replace(/\s+/g, " ").replace(/[.;]?\s+\d{1,2}(?:\.\d{1,2})+\.?\s+(?=[A-ZÀ-Ú])/g, "; ").replace(/^[\s\d.)\-–•]+(?=[A-Za-zÀ-ú"“(])/, "").replace(/[\s.;,]+$/, "").trim();
+      if (t.length > 260) t = t.slice(0, 257).trimEnd() + "…";
+      const kt = chave(t); if (t.length < 3 || alvo.vistos.has(kt)) continue; alvo.vistos.add(kt); alvo.topicos.push(t);
+    }
+  }
+  return [...mapa.values()].filter(m => m.topicos.length).map(m => ({ nome: m.nome, topicos: m.topicos.slice(0, 250), incluir: true, horas: 2, alvoId: casarMateria(m.nome) }));
+}
+
+/* Leitura de PDF com pdf.js (carregado só quando necessário; roda na própria página) */
+let pdfPronto = null;
+const loadScript = src => new Promise((ok, erro) => { const el = document.createElement("script"); el.src = src; el.onload = ok; el.onerror = () => erro(new Error("script")); document.head.appendChild(el); });
+function carregarPdfJs() {
+  return pdfPronto ||= (async () => {
+    const base = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/";
+    await loadScript(base + "pdf.worker.min.js"); await loadScript(base + "pdf.min.js");
+    const lib = window.pdfjsLib; lib.GlobalWorkerOptions.workerSrc = base + "pdf.worker.min.js"; return lib;
+  })().catch(e => { pdfPronto = null; throw e; });
+}
+const impStatus = msg => { IMP.status = msg; const el = $("#impStatus"); if (el) { el.textContent = msg; el.style.color = ""; } };
+async function extrairPdf(file) {
+  impStatus("Preparando a leitura do PDF…");
+  const lib = await carregarPdfJs();
+  const doc = await lib.getDocument({ data: new Uint8Array(await file.arrayBuffer()), isEvalSupported: false }).promise;
+  const paginas = [];
+  for (let i = 1; i <= doc.numPages; i++) {
+    impStatus(`Lendo página ${i} de ${doc.numPages}…`);
+    const tc = await (await doc.getPage(i)).getTextContent();
+    let t = ""; for (const it of tc.items) { t += it.str || ""; t += it.hasEOL ? "\n" : (it.str && !/\s$/.test(it.str) ? " " : ""); }
+    paginas.push(t.replace(/[ \t]+/g, " "));
+  }
+  // remove cabeçalhos e rodapés que se repetem em muitas páginas
+  const norm = l => l.trim().replace(/\d+/g, "#").replace(/\s+/g, " ").toLowerCase();
+  const freq = {}; paginas.forEach(p => new Set(p.split("\n").map(norm).filter(l => l.length > 3)).forEach(l => freq[l] = (freq[l] || 0) + 1));
+  const lim = Math.max(3, doc.numPages * 0.3);
+  return paginas.map(p => p.split("\n").filter(l => doc.numPages < 4 || (freq[norm(l)] || 0) < lim).join("\n")).join("\n");
+}
+
+/* Reconhecimento sem IA */
+const RE_TITULO = /([A-ZÁÂÃÀÉÊÍÓÔÕÚÇ][A-ZÁÂÃÀÉÊÍÓÔÕÚÇ0-9 ,\-–\/()ºª]{2,100}?)\s*:/g;
+const RE_LINHA = /^[A-ZÁÂÃÀÉÊÍÓÔÕÚÇIVX0-9][A-ZÁÂÃÀÉÊÍÓÔÕÚÇ0-9 ,\-–\/()ºª.]{3,100}$/;
+const GRUPO = /^(conhecimentos|parte|bloco|modulo|grupo|cargo|cargos|anexo|nivel|disciplinas|prova|provas|conteudo|conteudos|objetos|habilidades|eixo|area|especialidade|para todos|d[ao]s?|edital|cronograma|quadro|tabela|item|subitem)\b/;
+const letras = t => t.replace(/[^A-Za-zÀ-ú]/g, "").length;
+function acharTitulos(txt) {
+  const out = [];
+  for (const m of txt.matchAll(RE_TITULO)) { const t = m[1].trim(); if (letras(t) >= 4 && t.split(/\s+/).length <= 14) out.push({ i: m.index, fim: m.index + m[0].length, t }); }
+  let pos = 0;
+  for (const linha of txt.split("\n")) { const t = linha.trim(); if (RE_LINHA.test(t) && letras(t) >= 4 && !/[a-zà-ú]/.test(t) && !/:$/.test(t)) { const i = pos + linha.indexOf(t); out.push({ i, fim: i + t.length, t }); } pos += linha.length + 1; }
+  out.sort((a, b) => a.i - b.i);
+  const limpo = []; for (const h of out) if (!limpo.length || h.i >= limpo[limpo.length - 1].fim) limpo.push(h);
+  return limpo.map(h => ({ ...h, grupo: GRUPO.test(semAcento(tituloCaso(h.t).toLowerCase())) || /\bCARGO\b/.test(h.t) }));
+}
+function separarTopicos(conteudo) {
+  const c = conteudo.replace(/\s+/g, " ").trim();
+  const re = /(?<![\d.,ºª°\/\-])\b(\d{1,2})(?:\s*[.)\-–]|\s)\s*(?=[A-ZÁÂÃÀÉÊÍÓÔÕÚÇ"“(])/g;
+  const cadeia = []; let esperado = 1;
+  for (const m of c.matchAll(re)) if (+m[1] === esperado) { cadeia.push(m); esperado++; }
+  if (cadeia.length >= 2) return cadeia.map((m, k) => c.slice(m.index + m[0].length, k + 1 < cadeia.length ? cadeia[k + 1].index : c.length));
+  const pv = c.split(/\s*;\s*/); if (pv.length >= 2) return pv;
+  const pf = c.split(/\.\s+(?=[A-ZÁÂÃÀÉÊÍÓÔÕÚÇ])/); if (pf.length >= 2) return pf;
+  return c.length >= 3 ? [c] : [];
+}
+function reconhecer(txt) {
+  const tit = acharTitulos(txt); const brutas = [];
+  tit.forEach((h, k) => {
+    if (h.grupo) return;
+    let conteudo = txt.slice(h.fim, k + 1 < tit.length ? tit[k + 1].i : txt.length).slice(0, 25000);
+    // o conteúdo da última matéria não pode engolir o resto do edital (próximo item do edital ou anexo)
+    const corte = conteudo.search(/\n\s*(?:ANEXO\b|\d{1,2}(?:\.\d{1,2})*\.?\s+D[AO]S?\s+[A-ZÁÂÃÉÊÍÓÔÕÚÇ]{3})/); if (corte > 0) conteudo = conteudo.slice(0, corte);
+    if (conteudo.replace(/\s/g, "").length < 12) return;
+    const nome = tituloCaso(h.t); if (nome.length < 4 || nome.length > 90) return;
+    brutas.push({ nome, topicos: separarTopicos(conteudo) });
+  });
+  return mesclarMaterias(brutas);
+}
+/* Escolhe onde começa o conteúdo programático (e, se informado, o cargo) */
+function recortar(txt, cargo, usarCargo) {
+  const low = semAcento(txt.toLowerCase());
+  const cands = [];
+  for (const k of ["conteudos programaticos", "conteudo programatico", "objetos de avaliacao", "programa das provas", "programas das provas"]) {
+    let i = low.indexOf(k); while (i >= 0) { cands.push(i); i = low.indexOf(k, i + 1); }
+  }
+  let ini = 0;
+  if (cands.length) { // fica com a ocorrência seguida de mais títulos de matéria
+    let melhor = -1; for (const i of cands) { const n = acharTitulos(txt.slice(i, i + 20000)).filter(h => !h.grupo).length; if (n > melhor) { melhor = n; ini = i; } }
+  }
+  let achouCargo = null;
+  if (cargo && usarCargo) { const j = low.indexOf(semAcento(cargo.toLowerCase()).trim(), ini); achouCargo = j >= 0; if (j >= 0) ini = j; }
+  return { trecho: txt.slice(ini), achouCargo };
+}
+
+/* Leitura com o Claude */
+const promptEdital = (trecho, k, n, cargo) => `Você está ajudando a montar um edital verticalizado de concurso público brasileiro.
+Abaixo está ${n > 1 ? `a parte ${k + 1} de ${n} de ` : ""}um trecho do edital (texto extraído de PDF, com quebras de linha soltas e possíveis cabeçalhos ou rodapés de página no meio).
+
+Tarefa: extraia as disciplinas (matérias) e os tópicos do conteúdo programático${cargo ? ` do cargo "${cargo}". Se o edital tiver vários cargos, considere só as disciplinas cobradas desse cargo, incluindo as comuns a todos os cargos` : ""}.
+
+Regras:
+- Cada disciplina vira um item com "nome" (como no edital, em formato de título, por exemplo "Direito Administrativo", nunca em caixa alta) e "topicos" (lista de textos).
+- Cada item numerado de nível superior (1, 2, 3...) vira um tópico. Subitens (1.1, 1.2...) ficam dentro do tópico pai, separados por "; ".
+- Sem numeração, separe os assuntos pelos pontos e vírgulas ou pelos pontos finais.
+- Mantenha a redação do edital, sem a numeração, com no máximo 220 caracteres por tópico (termine com "…" se precisar cortar).
+- Não invente nada. Ignore cabeçalhos, rodapés, números de página, regras do concurso, cronogramas e bibliografia.
+- Se o trecho não tiver conteúdo programático, use "materias": [].
+- Use "fim": true se todo o conteúdo programático já terminou dentro deste trecho (começou um anexo de outro assunto ou o fim do edital); senão "fim": false.
+
+Responda só com JSON neste formato:
+{"materias":[{"nome":"Língua Portuguesa","topicos":["Compreensão e interpretação de textos","Domínio da ortografia oficial"]}],"fim":false}
+
+Trecho do edital:
+"""
+${trecho}
+"""`;
+const ERROS_IA = { not_granted: "O uso do Claude nesta página não foi permitido. Use o reconhecimento automático ou libere nas permissões da página.", sampling_disabled: "O Claude não está disponível nesta conta para páginas. Use o reconhecimento automático.", rate_limited: "Limite de uso do Claude atingido no momento. Tente mais tarde ou use o reconhecimento automático.", session_expired: "Sua sessão expirou. Entre novamente e tente de novo.", prompt_too_large: "O trecho ficou grande demais. Informe o cargo ou cole só o conteúdo programático.", invalid_json: "A resposta veio incompleta. Informe o cargo para reduzir o trecho ou cole só o conteúdo programático.", refused: "O Claude não conseguiu processar este texto. Use o reconhecimento automático." };
+async function lerComClaude() {
+  const { trecho } = recortar(IMP.texto, IMP.cargo, false);
+  const TAM = 60000, partes = [];
+  for (let i = 0; i < trecho.length && partes.length < 8; i += TAM) partes.push(trecho.slice(i, i + TAM));
+  const cortado = trecho.length > TAM * 8;
+  IMP.ctrl ||= new AbortController(); const todas = [];
+  try {
+    for (let k = 0; k < partes.length; k++) {
+      impStatus(`O Claude está lendo o edital${partes.length > 1 ? ` (parte ${k + 1} de ${partes.length})` : ""}… isso pode levar um minuto.`);
+      const r = await sampleFn.json(promptEdital(partes[k], k, partes.length, IMP.cargo.trim()), { signal: IMP.ctrl.signal, modelTier: "default" });
+      if (Array.isArray(r?.materias)) todas.push(...r.materias);
+      if (r?.fim === true && todas.length) break;
+    }
+  } catch (e) {
+    if (e?.code === "cancelled") { IMP.erro = todas.length ? "" : "Leitura cancelada."; }
+    else if (!todas.length) throw e;
+    else IMP.erro = "Parte do edital não pôde ser lida; revise se faltou alguma matéria.";
+  } finally { IMP.ctrl = null; }
+  if (cortado) IMP.erro = "O edital é muito longo e só o começo do conteúdo foi lido. Informe o cargo ou cole o trecho que falta.";
+  return mesclarMaterias(todas);
+}
+
+function viewImport() {
+  if (!IMP.aberto) return "";
+  if (IMP.resultado) return viewRevisaoImport();
+  const msg = IMP.erro || IMP.status;
+  return `<div class="panel" style="margin-bottom:16px"><div class="ph"><h2>Importar edital</h2><button class="btn ghost sm" id="impFechar">Fechar</button></div>
+    <p class="muted small" style="margin-bottom:12px">Envie o PDF do edital ou cole o texto do conteúdo programático. O sistema reconhece as matérias e os tópicos e mostra tudo para você revisar antes de cadastrar.</p>
+    <div class="form">
+      <div class="field span2"><span>Arquivo do edital (PDF ou TXT)</span><div class="row wrap"><label class="btn" for="impArq" ${IMP.ocupado ? 'aria-disabled="true" style="pointer-events:none;opacity:.5"' : ""}>Escolher arquivo</label><input type="file" id="impArq" accept=".pdf,.txt,application/pdf,text/plain" hidden><span class="muted small trunc" style="max-width:100%">${IMP.origem ? esc(IMP.origem) : "nenhum arquivo escolhido"}</span></div></div>
+      <label class="field span2"><span>Cargo (opcional, para pegar só o conteúdo dele)</span><input type="text" id="impCargo" value="${esc(IMP.cargo)}" placeholder="ex.: Técnico de Controle Externo"></label>
+      <label class="field span4"><span>Texto do edital${IMP.texto ? ` · ${IMP.texto.length.toLocaleString("pt-BR")} caracteres` : ""}</span><textarea id="impTexto" style="min-height:150px" placeholder="Cole aqui o conteúdo programático, ou escolha o PDF acima">${esc(IMP.texto)}</textarea></label>
+    </div>
+    <p class="small" id="impStatus" role="status" style="margin-top:10px;min-height:1.2em;${IMP.erro ? "color:var(--bad)" : ""}">${esc(msg)}</p>
+    <div class="row wrap end" style="margin-top:8px">
+      ${IMP.ocupado && IMP.ctrl ? `<button class="btn" id="impCancelar">Cancelar leitura</button>` : ""}
+      <button class="btn" id="impAuto" ${IMP.ocupado ? "disabled" : ""}>Reconhecer automaticamente</button>
+      ${sampleFn ? `<button class="btn primary" id="impIA" ${IMP.ocupado ? "disabled" : ""}>Ler com Claude</button>` : ""}
+    </div>
+    <p class="muted small" style="margin-top:10px;max-width:75ch">${sampleFn ? "<b>Ler com Claude</b> entende editais de qualquer banca, filtra pelo cargo e separa melhor os tópicos; usa o seu limite de uso do Claude. " : ""}<b>Reconhecer automaticamente</b> funciona sem IA e acerta melhor editais no formato “MATÉRIA: 1 Tópico. 2 Tópico.”, como os do Cebraspe. PDFs digitalizados (imagem) não têm texto para ler; nesse caso cole o texto.</p></div>`;
+}
+function viewRevisaoImport() {
+  const r = IMP.resultado; const sel = r.filter(x => x.incluir);
+  return `<div class="panel" style="margin-bottom:16px"><div class="ph"><h2>Revise o que foi reconhecido</h2><span class="muted small">${sel.length} de ${r.length} matérias · ${sel.reduce((a, x) => a + x.topicos.length, 0)} tópicos</span></div>
+    ${IMP.erro ? `<p class="notice">${esc(IMP.erro)}</p>` : ""}
+    <p class="muted small" style="margin-bottom:8px">Desmarque o que não quer importar, corrija nomes e edite os tópicos (um por linha). Quando o nome bate com uma matéria que você já tem, ela é juntada à existente.</p>
+    <div class="list">${r.map((x, i) => `<div class="li">
+      <div class="row wrap">
+        <input type="checkbox" id="imp_c_${i}" ${x.incluir ? "checked" : ""} aria-label="Importar" style="width:18px;height:18px;accent-color:var(--accent);flex:none">
+        <input type="text" id="imp_n_${i}" value="${esc(x.nome)}" style="flex:1;min-width:160px;width:auto" aria-label="Nome da matéria">
+        <select id="imp_a_${i}" style="width:auto;max-width:240px" aria-label="Destino"><option value="">Criar matéria nova</option>${S.config.materias.map(m => `<option value="${m.id}" ${m.id === x.alvoId ? "selected" : ""}>Juntar com ${esc(m.nome)}</option>`).join("")}</select>
+        <label class="row" style="gap:6px" id="imp_hl_${i}" ${x.alvoId ? "hidden" : ""}><span class="muted small">h/ciclo</span><input type="number" id="imp_h_${i}" min="0" step="0.5" value="${x.horas}" style="width:76px"></label>
+      </div>
+      <details style="margin-top:6px" data-impd="${i}" ${IMP.abertos.has(i) ? "open" : ""}><summary class="muted small" style="cursor:pointer">${x.topicos.length} tópicos · ver e editar</summary>
+        <textarea id="imp_t_${i}" style="margin-top:6px;min-height:150px" aria-label="Tópicos, um por linha">${esc(x.topicos.join("\n"))}</textarea></details>
+    </div>`).join("")}</div>
+    <div class="row wrap between" style="margin-top:14px">
+      <div class="chips" role="group" aria-label="Como importar"><button class="chip" data-impmodo="somar" aria-pressed="${IMP.modo === "somar"}">Somar às matérias atuais</button><button class="chip" data-impmodo="substituir" aria-pressed="${IMP.modo === "substituir"}">Substituir todas</button></div>
+      <div class="row wrap"><button class="btn ghost" id="impVoltar">Voltar</button><button class="btn primary" id="impAplicar">Cadastrar no edital</button></div>
+    </div>
+    ${IMP.modo === "substituir" ? `<p class="notice" style="margin:12px 0 0">As matérias que não estiverem nesta lista saem do edital e do ciclo. Tópicos com o mesmo nome continuam marcados como concluídos, e as sessões já registradas ficam no histórico.</p>` : `<p class="muted small" style="margin-top:10px">Tópicos que já existem na matéria não são duplicados.</p>`}
+  </div>`;
+}
+function lerRevisao() {
+  (IMP.resultado || []).forEach((x, i) => {
+    const c = $("#imp_c_" + i); if (!c) return;
+    x.incluir = c.checked; x.nome = $("#imp_n_" + i).value; x.alvoId = $("#imp_a_" + i).value || null;
+    x.horas = Math.max(0, Math.round((parseFloat(String($("#imp_h_" + i).value).replace(",", ".")) || 0) * 2) / 2);
+    x.topicos = $("#imp_t_" + i).value.split("\n").map(t => t.trim()).filter(Boolean);
+  });
+}
+function aplicarImport() {
+  lerRevisao();
+  const sel = IMP.resultado.filter(x => x.incluir && x.nome.trim() && x.topicos.length);
+  if (!sel.length) { toast("Marque ao menos uma matéria com tópicos"); return; }
+  let nM = 0, nT = 0;
+  if (IMP.modo === "somar") {
+    for (const x of sel) {
+      let m = x.alvoId && mat(x.alvoId);
+      if (!m) { m = { id: uid(), nome: x.nome.trim(), horasCiclo: x.horas, cor: CORES[S.config.materias.length % CORES.length], topicos: [] }; S.config.materias.push(m); nM++; }
+      const ex = new Set(m.topicos.map(t => chave(t.nome)));
+      for (const t of x.topicos) { const k = chave(t); if (!ex.has(k)) { m.topicos.push({ id: uid(), nome: t, feito: false }); ex.add(k); nT++; } }
+    }
+  } else {
+    const usados = new Set(), novas = [];
+    for (const x of sel) {
+      const old = x.alvoId && !usados.has(x.alvoId) ? mat(x.alvoId) : null; if (old) usados.add(old.id);
+      const porNome = new Map((old?.topicos || []).map(t => [chave(t.nome), t]));
+      const m = old ? { ...old, nome: x.nome.trim() } : { id: uid(), nome: x.nome.trim(), horasCiclo: x.horas, cor: CORES[novas.length % CORES.length], topicos: [] };
+      if (!old) nM++;
+      const vistos = new Set();
+      m.topicos = x.topicos.filter(t => { const k = chave(t); if (vistos.has(k)) return false; vistos.add(k); return true; }).map(t => porNome.get(chave(t)) || { id: uid(), nome: t, feito: false });
+      nT += m.topicos.length; novas.push(m);
+    }
+    S.config.materias = novas;
+  }
+  saveConfig();
+  Object.assign(IMP, { aberto: false, resultado: null, texto: "", origem: "", status: "", erro: "", abertos: new Set() });
+  render(); toast(`Edital importado: ${nM} matéria(s) nova(s) e ${nT} tópico(s)`);
+}
+function bindImportEdital() {
+  ["#impAbrir", "#impAbrir2"].forEach(id => { const b = $(id); if (b) b.onclick = () => { IMP.aberto = true; if (!IMP.cargo && /técnico de controle externo/i.test(S.config.objetivo)) IMP.cargo = "Técnico de Controle Externo"; render(); $("#impTexto")?.focus(); }; });
+  const fechar = $("#impFechar"); if (fechar) fechar.onclick = () => { IMP.ctrl?.abort(); IMP.aberto = false; render(); };
+  const txt = $("#impTexto"); if (txt) txt.oninput = () => { IMP.texto = txt.value; };
+  const cg = $("#impCargo"); if (cg) cg.oninput = () => { IMP.cargo = cg.value; };
+  const arq = $("#impArq");
+  if (arq) arq.onchange = async () => {
+    const f = arq.files?.[0]; if (!f) return;
+    Object.assign(IMP, { origem: f.name, erro: "", status: "", ocupado: true }); render();
+    try {
+      IMP.texto = /\.pdf$/i.test(f.name) || f.type === "application/pdf" ? await extrairPdf(f) : await f.text();
+      const pouco = IMP.texto.replace(/\s/g, "").length < 300;
+      IMP.status = pouco ? "" : `Texto extraído: ${IMP.texto.length.toLocaleString("pt-BR")} caracteres. Agora escolha como reconhecer as matérias.`;
+      IMP.erro = pouco ? "Quase nenhum texto foi encontrado. O PDF parece ser uma imagem digitalizada; copie o texto do edital de outra fonte e cole abaixo." : "";
+    } catch (e) {
+      IMP.erro = e?.name === "PasswordException" ? "O PDF está protegido por senha. Remova a senha ou cole o texto." : e?.message === "script" ? "Não foi possível carregar o leitor de PDF. Confira a conexão ou cole o texto." : "Não foi possível ler este arquivo. Tente outro PDF ou cole o texto.";
+    }
+    IMP.ocupado = false; render();
+  };
+  const semTexto = () => { if (IMP.texto.trim().length >= 20) return false; IMP.erro = "Escolha o PDF do edital ou cole o texto antes de reconhecer."; render(); return true; };
+  const auto = $("#impAuto");
+  if (auto) auto.onclick = () => {
+    if (semTexto()) return;
+    const { trecho, achouCargo } = recortar(IMP.texto, IMP.cargo, true);
+    const r = reconhecer(trecho);
+    if (!r.length) { IMP.erro = `Não reconheci nenhuma matéria.${sampleFn ? " Tente “Ler com Claude”" : " Cole só o trecho do conteúdo programático"} ou confira o texto.`; IMP.status = ""; render(); return; }
+    IMP.erro = achouCargo === false ? `O cargo “${IMP.cargo}” não foi encontrado no texto; mostrei tudo o que reconheci. Desmarque o que não for do seu cargo.` : IMP.cargo ? "" : "Sem cargo informado: se o edital tiver vários cargos, desmarque as matérias que não são do seu.";
+    IMP.resultado = r; IMP.abertos = new Set(); render();
+  };
+  const ia = $("#impIA");
+  if (ia) ia.onclick = async () => {
+    if (semTexto()) return;
+    Object.assign(IMP, { ocupado: true, erro: "", status: "O Claude está lendo o edital…", ctrl: new AbortController() }); render();
+    try {
+      const r = await lerComClaude();
+      if (r.length) { IMP.resultado = r; IMP.abertos = new Set(); IMP.status = ""; }
+      else if (!IMP.erro) IMP.erro = "O Claude não encontrou conteúdo programático neste texto. Confira se o PDF certo foi enviado ou informe o cargo exatamente como está no edital.";
+    } catch (e) { IMP.erro = ERROS_IA[e?.code] || "Não foi possível ler com o Claude agora. Tente de novo ou use o reconhecimento automático."; if (["not_granted", "sampling_disabled", "not_declared", "capability_disabled", "capability_removed"].includes(e?.code)) sampleFn = null; }
+    IMP.ocupado = false; render();
+  };
+  const canc = $("#impCancelar"); if (canc) canc.onclick = () => IMP.ctrl?.abort();
+  if (IMP.resultado) {
+    $$("[id^=imp_]", $("#main")).forEach(el => el.addEventListener("change", lerRevisao));
+    $$("[id^=imp_a_]").forEach(sel => sel.addEventListener("change", () => { const i = sel.id.slice(6); const hl = $("#imp_hl_" + i); if (hl) hl.hidden = !!sel.value; }));
+    $$("[data-impd]").forEach(d => d.ontoggle = () => d.open ? IMP.abertos.add(+d.dataset.impd) : IMP.abertos.delete(+d.dataset.impd));
+    $$("[data-impmodo]").forEach(b => b.onclick = () => { lerRevisao(); IMP.modo = b.dataset.impmodo; render(); });
+    $("#impVoltar").onclick = () => { lerRevisao(); IMP.resultado = null; IMP.erro = ""; render(); };
+    const ap = $("#impAplicar"); ap.onclick = () => { if (IMP.modo === "substituir" && !armed(ap, "Confirmar substituição")) return; aplicarImport(); };
+  }
+}
+
+/* ---------- Revisões ---------- */
+function viewRevisoes() {
+  const r = revisoesLista(), t = today();
+  const atr = r.filter(x => x.r.data < t), hoje = r.filter(x => x.r.data === t), prox = r.filter(x => x.r.data > t);
+  const feitasSemana = sessoes().flatMap(s => s.revs || []).filter(x => x.feita && x.feitaEm >= weekStart(t)).length;
+  const sec = (tit, arr, vazio, lim) => `<div class="panel"><div class="ph"><h2>${tit}</h2><span class="num muted">${arr.length}</span></div>${arr.length ? `<div class="list">${arr.slice(0, lim).map(revItem).join("")}</div>${arr.length > lim ? `<p class="muted small" style="margin-top:8px">Mostrando ${lim} de ${arr.length}.</p>` : ""}` : `<p class="muted">${vazio}</p>`}</div>`;
+  return `<div class="head"><div><div class="label">Repetição espaçada · ${S.config.revisoes.join(" / ")} dias · ${feitasSemana} feitas nesta semana</div><h1>Revisões</h1></div></div><!--note-->
+  <p class="muted" style="margin:-8px 0 16px;max-width:65ch">“Revisar” abre o registro já preenchido para contar o tempo da revisão; “Feita” só marca como concluída.</p>
+  <div class="grid">${sec("Atrasadas", atr, "Nenhuma revisão atrasada.", 50)}${sec("Para hoje", hoje, "Nada agendado para hoje.", 50)}${sec("Próximas", prox, "Registre uma sessão de teoria com revisões agendadas para preencher esta lista.", 30)}</div>`;
+}
+
+/* ---------- Desempenho ---------- */
+let periodo = "tudo";
+const PERIODOS = { "7": "7 dias", "30": "30 dias", "90": "90 dias", tudo: "Tudo" };
+function viewDesempenho() {
+  const desde = periodo === "tudo" ? "" : addDays(today(), -(+periodo - 1));
+  const dp = desempenho(desde); const ss = sessoes().filter(s => !desde || s.data >= desde);
+  const totMin = ss.reduce((a, s) => a + (s.minutos || 0), 0), totQ = ss.reduce((a, s) => a + (s.questoes || 0), 0), totA = ss.reduce((a, s) => a + (s.acertos || 0), 0);
+  const pag = ss.reduce((a, s) => a + (s.paginas || 0), 0), aulas = ss.reduce((a, s) => a + (s.aulas || 0), 0);
+  const ms = S.config.materias.map(m => ({ m, d: dp[m.id] || { min: 0, q: 0, a: 0 } }));
+  const maxMin = Math.max(1, ...ms.map(x => x.d.min));
+  const comQ = ms.filter(x => x.d.q > 0).map(x => ({ ...x, p: pct(x.d.a, x.d.q) })).sort((a, b) => a.p - b.p);
+  const ap = pct(totA, totQ);
+  // evolução: últimas 8 semanas
+  const sem = [...Array(8)].map((_, i) => addDays(weekStart(today()), -(7 - i) * 7));
+  const porSem = sem.map(w => { const fim = addDays(w, 6); const x = sessoes().filter(s => s.data >= w && s.data <= fim); return { w, min: x.reduce((a, s) => a + (s.minutos || 0), 0), q: x.reduce((a, s) => a + (s.questoes || 0), 0), a: x.reduce((a, s) => a + (s.acertos || 0), 0) }; });
+  const maxSem = Math.max(S.config.metaSemanal * 60, ...porSem.map(x => x.min));
+  const porCat = {}; ss.forEach(s => porCat[s.categoria] = (porCat[s.categoria] || 0) + (s.minutos || 0));
+  // tópicos mais fracos (mín. 10 questões)
+  const fracos = [];
+  for (const m of S.config.materias) for (const [tid, t] of Object.entries(dp[m.id]?.topicos || {})) if (t.q >= 10) { const tt = topico(m, tid); if (tt) fracos.push({ m, t: tt, p: pct(t.a, t.q), q: t.q }); }
+  fracos.sort((a, b) => a.p - b.p);
+  return `<div class="head"><div><div class="label">${PERIODOS[periodo]}</div><h1>Desempenho</h1></div>
+    <div class="chips" role="group" aria-label="Período">${Object.entries(PERIODOS).map(([k, l]) => `<button class="chip" data-per="${k}" aria-pressed="${k === periodo}">${l}</button>`).join("")}</div></div><!--note-->
+  <div class="grid">
+    <div class="grid g3">
+      <div class="panel stat"><div class="label">Horas estudadas</div><div class="v">${fmtH(totMin)}</div><div class="s">${ss.length} sessões · ${pag} páginas · ${aulas} aulas</div></div>
+      <div class="panel stat"><div class="label">Questões</div><div class="v">${totQ}</div><div class="s">${totA} acertos · ${totQ - totA} erros</div></div>
+      <div class="panel stat"><div class="label">Aproveitamento</div><div class="v" style="color:${ap == null ? "var(--ink)" : `var(--${accClass(ap)})`}">${ap ?? "—"}${ap != null ? "%" : ""}</div><div class="s">referência: 80% ou mais</div></div>
+    </div>
+    <div class="grid g2">
+      <div class="panel"><div class="ph"><h2>Horas por semana</h2><span class="muted small">linha = meta de ${S.config.metaSemanal}h</span></div>
+        ${colChart(porSem.map((x, i) => ({ v: x.min, t: x.min ? (x.min >= 60 ? String(Math.round(x.min / 6) / 10).replace(".", ",") + "h" : x.min + "m") : "", d: fmtShort(x.w), now: i === 7 })), maxSem, S.config.metaSemanal * 60)}</div>
+      <div class="panel"><div class="ph"><h2>Acertos por semana</h2><span class="muted small">% das questões feitas</span></div>
+        ${porSem.some(x => x.q) ? colChart(porSem.map((x, i) => { const p = pct(x.a, x.q); return { v: p ?? 0, t: p != null ? p + "%" : "", d: fmtShort(x.w), now: i === 7, color: p == null ? "" : `var(--${accClass(p)})` }; }), 100, 80) : `<p class="muted">Registre questões para ver a evolução.</p>`}</div>
+    </div>
+    <div class="grid g2">
+      <div class="panel"><h2>Horas por matéria</h2><div class="list">${ms.map(x => `<div class="li"><div class="row between"><span class="trunc">${esc(x.m.nome)}</span><span class="num muted small">${fmtH(x.d.min)}${totMin ? ` · ${Math.round(x.d.min / totMin * 100)}%` : ""}</span></div>
+        <div class="bar" style="margin-top:6px"><i style="width:${x.d.min / maxMin * 100}%;background:${esc(x.m.cor)}"></i></div></div>`).join("") || `<p class="muted">Sem matérias.</p>`}</div></div>
+      <div class="panel"><div class="ph"><h2>Mapa de dificuldades</h2><span class="muted small">pior → melhor</span></div>
+        ${comQ.length ? `<div class="list">${comQ.map(x => `<div class="li row"><span class="dot" style="background:${esc(x.m.cor)}"></span><span class="grow trunc">${esc(x.m.nome)}</span><span class="num muted small">${x.d.a}/${x.d.q}</span><span class="pill ${accClass(x.p)}">${x.p}%</span></div>`).join("")}</div>
+        <p class="muted small" style="margin-top:10px">Verde a partir de 80%, amarelo entre 65% e 79%, vermelho abaixo de 65%.</p>` : `<p class="muted">Registre questões feitas e acertos para ver onde você está mais forte e mais fraco.</p>`}</div>
+    </div>
+    <div class="grid g2">
+      <div class="panel"><div class="ph"><h2>Tópicos que pedem atenção</h2><span class="muted small">com 10+ questões</span></div>
+        ${fracos.length ? `<div class="list">${fracos.slice(0, 8).map(x => `<div class="li row"><span class="dot" style="background:${esc(x.m.cor)}"></span><div class="grow" style="min-width:0"><div class="trunc">${esc(x.t.nome)}</div><div class="muted small trunc">${esc(x.m.nome)} · ${x.q} questões</div></div><span class="pill ${accClass(x.p)}">${x.p}%</span></div>`).join("")}</div>` : `<p class="muted">Aparecem aqui quando um tópico acumula pelo menos 10 questões.</p>`}</div>
+      <div class="panel"><h2>Tempo por tipo de estudo</h2>${totMin ? `<div class="list">${CATEGORIAS.filter(c => porCat[c]).sort((a, b) => porCat[b] - porCat[a]).map(c => `<div class="li"><div class="row between"><span>${c}</span><span class="num muted small">${fmtH(porCat[c])} · ${Math.round(porCat[c] / totMin * 100)}%</span></div><div class="bar" style="margin-top:6px"><i style="width:${porCat[c] / totMin * 100}%"></i></div></div>`).join("")}</div>` : `<p class="muted">Sem sessões no período.</p>`}</div>
+    </div>
+  </div>`;
+}
+function bindDesempenho() { $$("[data-per]").forEach(b => b.onclick = () => { periodo = b.dataset.per; render(); }); }
+
+/* ---------- Histórico ---------- */
+let filtroMat = "", limiteHist = 100;
+function viewHistorico() {
+  const todas = sessoes().sort((a, b) => b.data.localeCompare(a.data) || (b.criadoEm || 0) - (a.criadoEm || 0));
+  const ss = filtroMat ? todas.filter(s => s.materiaId === filtroMat) : todas;
+  const tot = ss.reduce((a, s) => a + (s.minutos || 0), 0);
+  return `<div class="head"><div><div class="label">${ss.length} sessões · ${fmtH(tot)}</div><h1>Histórico</h1></div>
+    <div class="row wrap"><select id="hFiltro" aria-label="Filtrar por matéria" style="width:auto;max-width:240px"><option value="">Todas as matérias</option>${S.config.materias.map(m => `<option value="${m.id}" ${m.id === filtroMat ? "selected" : ""}>${esc(m.nome)}</option>`).join("")}</select><a class="btn primary" href="#registrar">Nova sessão</a></div></div><!--note-->
+  ${ss.length ? `<div class="panel scroll-x"><table><thead><tr><th>Data</th><th>Matéria / tópico</th><th>Tipo</th><th class="r">Tempo</th><th class="r">Questões</th><th></th></tr></thead><tbody>
+  ${ss.slice(0, limiteHist).map(s => { const m = mat(s.materiaId), t = topico(m, s.topicoId); const p = pct(s.acertos, s.questoes); return `<tr>
+    <td class="mono">${fmtDate(s.data)}</td>
+    <td style="white-space:normal;min-width:180px"><span class="dot" style="background:${esc(m?.cor || "#888")};margin-right:6px"></span><b>${esc(m?.nome || "Matéria removida")}</b>${t ? `<div class="muted small">${esc(t.nome)}</div>` : ""}${s.nota ? `<div class="muted small" style="font-style:italic">${esc(s.nota)}</div>` : ""}</td>
+    <td>${esc(s.categoria)}${s.paginas ? `<div class="muted small">${s.paginas} pág.</div>` : ""}${s.aulas ? `<div class="muted small">${s.aulas} aula(s)</div>` : ""}</td><td class="r mono">${s.minutos ? fmtH(s.minutos) : "—"}</td>
+    <td class="r">${s.questoes ? `<span class="mono">${s.acertos}/${s.questoes}</span> <span class="pill ${accClass(p)}">${p}%</span>` : "—"}</td>
+    <td class="r"><button class="btn ghost sm" data-edit="${s.id}">Editar</button><button class="btn ghost sm danger" data-del="${s.id}">Apagar</button></td></tr>`; }).join("")}
+  </tbody></table>${ss.length > limiteHist ? `<div class="row" style="justify-content:center;margin-top:12px"><button class="btn" id="hMais">Mostrar mais (${ss.length - limiteHist} restantes)</button></div>` : ""}</div>`
+  : `<div class="empty"><h2>${filtroMat ? "Nenhuma sessão desta matéria" : "Nenhuma sessão registrada"}</h2><p>Use o cronômetro ou registre manualmente o que estudou.</p><div class="row" style="justify-content:center"><a class="btn primary" href="#cronometro">Abrir cronômetro</a><a class="btn" href="#registrar">Registrar manual</a></div></div>`}`;
+}
+function bindHistorico() {
+  $("#hFiltro").onchange = e => { filtroMat = e.target.value; limiteHist = 100; render(); };
+  const mais = $("#hMais"); if (mais) mais.onclick = () => { limiteHist += 200; render(); };
+  $$("[data-edit]").forEach(b => b.onclick = () => { editId = b.dataset.edit; draft = null; revPend = null; prevView = null; go("registrar"); });
+  $$("[data-del]").forEach(b => b.onclick = () => {
+    if (!armed(b, "Confirmar")) return;
+    const f = findSessao(b.dataset.del); if (!f) return; S.months[f.k].sessoes.splice(f.i, 1); saveMonth(f.k); render(); toast("Sessão apagada");
+  });
+}
+
+/* ---------- Ajustes ---------- */
+function importControl() { return `<div class="row wrap"><label class="btn" for="impFile">Escolher arquivo de backup</label><input type="file" id="impFile" accept="application/json,.json" hidden><span class="muted small" id="impMsg"></span></div><div id="impConfirm" class="row wrap" style="margin-top:10px" hidden></div>`; }
+function bindImport() {
+  const inp = $("#impFile"); if (!inp) return;
+  inp.onchange = async () => {
+    const file = inp.files?.[0]; if (!file) return;
+    let data; try { data = JSON.parse(await file.text()); } catch { $("#impMsg").textContent = "Arquivo inválido: não é um backup JSON."; return; }
+    if (!data || data.app !== "mesa-de-estudos" || !data.config) { $("#impMsg").textContent = "Este arquivo não é um backup da Mesa de Estudos."; return; }
+    const n = Object.values(data.meses || {}).reduce((a, m) => a + (m.sessoes?.length || 0), 0);
+    $("#impMsg").textContent = `${data.config.materias?.length || 0} matérias e ${n} sessões, exportado em ${String(data.exportadoEm || "").slice(0, 10) || "data desconhecida"}.`;
+    const box = $("#impConfirm"); box.hidden = false;
+    box.innerHTML = `<span class="small">Restaurar substitui suas matérias e as sessões dos mesmos meses.</span><button class="btn primary sm" id="impGo">Restaurar backup</button>`;
+    $("#impGo").onclick = () => {
+      S.config = normalizeConfig(data.config); saveConfig();
+      for (const [k, v] of Object.entries(data.meses || {})) if (/^m_\d{4}-\d{2}$/.test(k) && Array.isArray(v?.sessoes)) { S.months[k] = normalizeMes(v); saveMonth(k); }
+      toast("Backup restaurado"); go("hoje"); render();
+    };
+  };
+}
+function viewAjustes() {
+  return `<div class="head"><div><div class="label">Preferências</div><h1>Ajustes</h1></div></div><!--note-->
+  <form class="panel" id="aForm"><div class="form">
+    <label class="field span2"><span>Objetivo (aparece no topo do painel)</span><input type="text" id="aObj" value="${esc(S.config.objetivo)}" maxlength="80"></label>
+    <label class="field"><span>Data da prova</span><input type="date" id="aProva" value="${esc(S.config.dataProva)}"></label>
+    <label class="field"><span>Meta semanal (horas)</span><input type="number" id="aMeta" min="1" max="100" step="1" value="${S.config.metaSemanal}"></label>
+    <label class="field span2"><span>Intervalos de revisão (dias, separados por vírgula)</span><input type="text" id="aRev" value="${S.config.revisoes.join(", ")}"></label>
+    <div class="field span2"><span>Dias em que você estuda (usados no plano de hoje)</span><div class="chips" id="aDias" role="group" aria-label="Dias de estudo">${[1,2,3,4,5,6,0].map(d => `<button type="button" class="chip" data-dia="${d}" aria-pressed="${S.config.diasEstudo.includes(d)}">${DOW[d]}</button>`).join("")}</div></div>
+    <div class="field span4"><div class="row end"><button class="btn primary" type="submit">Salvar ajustes</button></div></div>
+  </div></form>
+  <div class="grid g2" style="margin-top:16px">
+    <div class="panel"><h2>Backup</h2><p class="muted" style="margin:8px 0 14px">Exporte tudo (matérias, sessões e revisões) em um arquivo .json para guardar ou levar para outra conta.</p>
+      <div class="row wrap"><button class="btn" id="expBtn">Exportar backup</button><button class="btn ghost" id="expCopy">Copiar dados</button></div>
+      <textarea id="expArea" readonly hidden style="margin-top:10px" aria-label="Dados do backup"></textarea></div>
+    <div class="panel"><h2>Restaurar</h2><p class="muted" style="margin:8px 0 14px">Escolha um arquivo exportado por esta página.</p>${importControl()}</div>
+  </div>
+  <div class="panel" style="margin-top:16px"><h2 style="margin-bottom:8px">Onde seus dados ficam</h2>
+    <p class="muted" style="max-width:65ch">Matérias, sessões e revisões ficam salvas na sua conta e sincronizam entre os aparelhos em que você entrar. Sem internet, o app continua funcionando com a cópia deste aparelho e envia as alterações quando a conexão voltar. O cronômetro em andamento fica só neste aparelho.</p></div>
+  <div class="panel" style="margin-top:16px"><div class="ph"><h2>Conta</h2></div>
+    <div class="row wrap between"><span class="muted">Conectado como <b style="color:var(--ink)">${esc(S.email)}</b></span><button class="btn" id="sair">Sair da conta</button></div></div>`;
+}
+function backupJson() { return JSON.stringify({ app: "mesa-de-estudos", versao: 2, exportadoEm: new Date().toISOString(), config: S.config, meses: S.months }, null, 1); }
+function bindAjustes() {
+  $$("#aDias .chip").forEach(b => b.onclick = () => b.setAttribute("aria-pressed", b.getAttribute("aria-pressed") !== "true"));
+  $("#aForm").onsubmit = e => { e.preventDefault();
+    const revs = $("#aRev").value.split(/[,;\s]+/).map(Number).filter(n => Number.isInteger(n) && n > 0 && n < 400);
+    const dias = $$("#aDias .chip[aria-pressed=true]").map(b => +b.dataset.dia);
+    S.config.objetivo = $("#aObj").value.trim(); S.config.dataProva = $("#aProva").value; S.config.metaSemanal = Math.min(100, Math.max(1, parseInt($("#aMeta").value, 10) || 20));
+    if (revs.length) S.config.revisoes = [...new Set(revs)].sort((a, b) => a - b);
+    if (dias.length) S.config.diasEstudo = dias;
+    saveConfig(); render(); toast(!dias.length ? "Ajustes salvos. Marque ao menos um dia de estudo; os dias anteriores foram mantidos." : revs.length ? "Ajustes salvos" : "Ajustes salvos. Os intervalos de revisão eram inválidos e foram mantidos."); };
+  const showArea = () => { const a = $("#expArea"); a.value = backupJson(); a.hidden = false; a.focus(); a.select(); };
+  $("#expBtn").onclick = async () => {
+    try {
+      const url = URL.createObjectURL(new Blob([backupJson()], { type: "application/json" }));
+      const a = document.createElement("a"); a.href = url; a.download = `mesa-de-estudos-${today()}.json`; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 5000); toast("Backup baixado");
+    } catch { showArea(); toast("Não deu para baixar. Copie o texto abaixo."); }
+  };
+  $("#expCopy").onclick = async () => { try { await navigator.clipboard.writeText(backupJson()); toast("Dados copiados"); } catch { showArea(); toast("Selecione e copie o texto abaixo"); } };
+  bindImport();
+  $("#sair").onclick = async () => {
+    const n = pendentesLocais().size;
+    if (n && !armed($("#sair"), `Há ${n} alteração(ões) não enviadas. Sair mesmo assim?`)) return;
+    try { localStorage.removeItem(chaveCache()); localStorage.removeItem(chavePend()); } catch {}
+    await sb.auth.signOut().catch(() => {}); trocarUsuario(null);
+  };
+}
+
+if ("serviceWorker" in navigator && location.protocol === "https:") window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+render();
+boot();
+})();
+</script>
+</body>
+</html>
