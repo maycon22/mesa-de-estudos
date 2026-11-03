@@ -71,7 +71,10 @@ nav.rail a{display:flex;align-items:center;justify-content:space-between;gap:8px
 nav.rail a:hover{background:var(--sunk);color:var(--ink)}
 nav.rail a[aria-current="page"]{background:var(--surface);color:var(--ink);box-shadow:inset 0 0 0 1px var(--line)}
 .badge{font-family:var(--f-mono);font-size:.72rem;background:var(--bad);color:#fff;border-radius:99px;padding:1px 7px}
-.rail .timer-mini{margin-top:auto;padding:10px;border-radius:8px;background:var(--mark);color:var(--mark-ink);font-family:var(--f-mono);font-weight:700;text-decoration:none;display:block}
+.rail .tema{margin-top:auto;display:flex;align-items:center;gap:8px;padding:9px 10px;border-radius:8px;border:0;background:transparent;color:var(--muted);font-weight:500;cursor:pointer;text-align:left;white-space:nowrap}
+.rail .tema:hover{background:var(--sunk);color:var(--ink)}
+[data-tema-ciclo] .ic{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;border:1.5px solid currentColor;font-size:.7rem;line-height:1}
+.rail .timer-mini{margin-top:8px;padding:10px;border-radius:8px;background:var(--mark);color:var(--mark-ink);font-family:var(--f-mono);font-weight:700;text-decoration:none;display:block}
 .rail .timer-mini:hover{background:var(--mark);color:var(--mark-ink);filter:brightness(.96)}
 main{padding-block:28px 60px;padding-left:max(28px,env(safe-area-inset-left,0px));padding-right:max(28px,env(safe-area-inset-right,0px));max-width:1100px;width:100%}
 .head{display:flex;flex-wrap:wrap;align-items:end;justify-content:space-between;gap:12px;margin-bottom:22px}
@@ -200,6 +203,7 @@ td.r,th.r{text-align:right}
   nav.rail{position:sticky;height:auto;flex-direction:row;overflow-x:auto;border-right:0;border-bottom:1px solid var(--line);padding:8px 0;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));background:var(--bg);z-index:5;gap:2px}
   .brand{display:none}
   .rail .timer-mini{margin-top:0;margin-left:6px;padding:9px 10px}
+  .rail .tema{margin-top:0;margin-left:auto}
   main{padding-block:20px 60px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
   .g2,.g3{grid-template-columns:1fr}
   .form{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -224,6 +228,7 @@ td.r,th.r{text-align:right}
     <a href="#desempenho" data-v="desempenho">Desempenho</a>
     <a href="#historico" data-v="historico">Histórico</a>
     <a href="#ajustes" data-v="ajustes">Ajustes</a>
+    <button type="button" class="tema" data-tema-ciclo aria-label="Mudar tema"></button>
     <a class="timer-mini" id="timerMini" href="#cronometro" hidden>● 00:00:00</a>
     <div class="sync" id="syncInfo" aria-live="polite"></div>
   </nav>
@@ -257,6 +262,26 @@ const accClass = p => p == null ? "neutral" : p >= 80 ? "good" : p >= 65 ? "warn
 const weekStart = s => { const d = parseYmd(s); d.setDate(d.getDate() - (d.getDay() + 6) % 7); return ymd(d); };
 const ls = { get(k){ try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } }, set(k,v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch {} } };
 let toastT; const toast = msg => { const t = $("#toast"); t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 2800); };
+/* Tema: automático (segue o aparelho), claro ou escuro. A escolha fica guardada neste aparelho. */
+const TEMA_ORIGINAL = document.documentElement.getAttribute("data-theme");
+const TEMAS = { auto: { nome: "Automático", ic: "◐" }, claro: { nome: "Claro", ic: "☀" }, escuro: { nome: "Escuro", ic: "☾" } };
+let tema = ["auto", "claro", "escuro"].includes(ls.get("mesa-tema")) ? ls.get("mesa-tema") : "auto";
+function aplicarTema(t) {
+  tema = t; ls.set("mesa-tema", t);
+  const r = document.documentElement;
+  if (t === "claro") r.setAttribute("data-theme", "light");
+  else if (t === "escuro") r.setAttribute("data-theme", "dark");
+  else if (TEMA_ORIGINAL) r.setAttribute("data-theme", TEMA_ORIGINAL); else r.removeAttribute("data-theme");
+  document.querySelectorAll("[data-tema-ciclo]").forEach(b => { b.innerHTML = `<span class="ic" aria-hidden="true">${TEMAS[t].ic}</span>Tema: ${TEMAS[t].nome}`; b.title = "Mudar para " + TEMAS[proximoTema(t)].nome.toLowerCase(); });
+  document.querySelectorAll("[data-tema]").forEach(b => b.setAttribute("aria-pressed", b.dataset.tema === t));
+  const mt = document.querySelector('meta[name="theme-color"]'); if (mt) mt.content = getComputedStyle(r).getPropertyValue("--bg").trim() || mt.content;
+}
+const proximoTema = t => ({ auto: "claro", claro: "escuro", escuro: "auto" })[t];
+document.addEventListener("click", e => {
+  const c = e.target.closest("[data-tema-ciclo]"); if (c) { aplicarTema(proximoTema(tema)); toast("Tema: " + TEMAS[tema].nome); return; }
+  const b = e.target.closest("[data-tema]"); if (b) aplicarTema(b.dataset.tema);
+});
+try { matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => tema === "auto" && aplicarTema("auto")); } catch {}
 /* botão de confirmação em dois toques (a página não pode usar confirm()) */
 const armed = (b, label) => { if (b.dataset.armed) return true; b.dataset.armed = 1; const old = b.textContent; b.textContent = label; b.classList.add("danger"); setTimeout(() => { if (b.isConnected) { delete b.dataset.armed; b.textContent = old; b.classList.remove("danger"); } }, 4000); return false; };
 
@@ -512,6 +537,7 @@ function viewAuth() {
     </div>
   </form>
   ${t === "entrar" ? `<p class="muted small" style="margin-top:14px;text-align:center">Primeira vez aqui? <button type="button" class="linkbtn" data-tela="criar">Criar conta</button></p>` : ""}
+  <p style="margin-top:18px;text-align:center"><button type="button" class="btn ghost sm" data-tema-ciclo></button></p>
   </div>`;
 }
 function bindAuth() {
@@ -699,6 +725,7 @@ const go = v => { if (location.hash.slice(1) === v) render(); else location.hash
 
 function render() {
   const v = view(); prevView = v; pendingRender = false;
+  queueMicrotask(() => aplicarTema(tema));
   $$("#nav a[data-v]").forEach(a => a.dataset.v === v ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current"));
   const main = $("#main");
   const semMenu = !!sb && (!userId || AUTH.recuperando);
@@ -1674,6 +1701,9 @@ function viewAjustes() {
     <div class="field span2"><span>Dias em que você estuda (usados no plano de hoje)</span><div class="chips" id="aDias" role="group" aria-label="Dias de estudo">${[1,2,3,4,5,6,0].map(d => `<button type="button" class="chip" data-dia="${d}" aria-pressed="${S.config.diasEstudo.includes(d)}">${DOW[d]}</button>`).join("")}</div></div>
     <div class="field span4"><div class="row end"><button class="btn primary" type="submit">Salvar ajustes</button></div></div>
   </div></form>
+  <div class="panel" style="margin-top:16px"><h2>Aparência</h2>
+    <p class="muted" style="margin:8px 0 12px">Automático segue o tema do seu aparelho. A escolha vale para este aparelho.</p>
+    <div class="chips" role="group" aria-label="Tema">${Object.entries(TEMAS).map(([k, t]) => `<button type="button" class="chip" data-tema="${k}" aria-pressed="${k === tema}">${t.ic} ${t.nome}</button>`).join("")}</div></div>
   <div class="grid g2" style="margin-top:16px">
     <div class="panel"><h2>Backup</h2><p class="muted" style="margin:8px 0 14px">Exporte tudo (matérias, sessões e revisões) em um arquivo .json para guardar ou levar para outra conta.</p>
       <div class="row wrap"><button class="btn" id="expBtn">Exportar backup</button><button class="btn ghost" id="expCopy">Copiar dados</button></div>
