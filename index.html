@@ -171,6 +171,23 @@ textarea{min-height:90px;resize:vertical}
 .cols .d.now{color:var(--ink);font-weight:700}
 .cols .goal{position:absolute;left:0;right:0;border-top:1.5px dashed var(--muted);opacity:.6}
 
+/* Faculdade */
+.disc{border-top:1px solid var(--line)}
+.disc:first-of-type{border-top:0}
+.disc>summary{list-style:none;cursor:pointer;padding:14px 0;display:flex;align-items:center;gap:12px}
+.disc>summary::-webkit-details-marker{display:none}
+.disc>summary .chev{transition:transform .15s;color:var(--muted)}
+.disc[open]>summary .chev{transform:rotate(90deg)}
+.disc .corpo{padding:0 0 16px 22px;display:flex;flex-direction:column;gap:14px}
+.nota-big{font-family:var(--f-mono);font-weight:700;font-variant-numeric:tabular-nums;font-size:1.05rem;white-space:nowrap}
+.aval td,.aval th{padding:6px 6px;vertical-align:middle}
+.aval input{padding:5px 8px}
+.aval .w-nome{min-width:150px}.aval .w-data{width:150px}.aval .w-num{width:82px}
+.faltas{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.faltas .bar{flex:1;min-width:120px}
+.aula-hoje{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;background:var(--bg)}
+@media (max-width:860px){.disc .corpo{padding-left:4px}}
+
 /* Edital */
 details.mat{border-top:1px solid var(--line)}
 details.mat:first-of-type{border-top:0}
@@ -227,6 +244,7 @@ td.r,th.r{text-align:right}
     <a href="#revisoes" data-v="revisoes">Revisões <span class="badge" id="revBadge" hidden>0</span></a>
     <a href="#desempenho" data-v="desempenho">Desempenho</a>
     <a href="#historico" data-v="historico">Histórico</a>
+    <a href="#faculdade" data-v="faculdade">Faculdade <span class="badge" id="facBadge" hidden>0</span></a>
     <a href="#ajustes" data-v="ajustes">Ajustes</a>
     <button type="button" class="tema" data-tema-ciclo aria-label="Mudar tema"></button>
     <a class="timer-mini" id="timerMini" href="#cronometro" hidden>● 00:00:00</a>
@@ -339,6 +357,7 @@ function normalizeConfig(c) {
   c.dataProva ||= ""; c.objetivo ??= "";
   const dias = Array.isArray(c.diasEstudo) ? [...new Set(c.diasEstudo.map(Number).filter(n => Number.isInteger(n) && n >= 0 && n <= 6))] : [];
   c.diasEstudo = dias.length ? dias : [0,1,2,3,4,5,6];
+  c.fac = normalizeFac(c.fac);
   return c;
 }
 const num = v => Math.max(0, Math.round(Number(v) || 0));
@@ -349,7 +368,7 @@ function normalizeMes(m) {
     ...x, materiaId: limpa(x.materiaId), topicoId: limpa(x.topicoId), categoria: CATEGORIAS.includes(x.categoria) ? x.categoria : "Teoria",
     minutos: Math.min(1440, num(x.minutos)), questoes: num(x.questoes), acertos: Math.min(num(x.acertos), num(x.questoes)), paginas: num(x.paginas), aulas: num(x.aulas),
     nota: String(x.nota || ""), criadoEm: Number(x.criadoEm) || 0,
-    revs: Array.isArray(x.revs) ? x.revs.filter(r => r && /^\d{4}-\d{2}-\d{2}$/.test(r.data || "")).map(r => ({ ...r, d: num(r.d), feita: !!r.feita })) : [] })) };
+    revs: Array.isArray(x.revs) ? x.revs.filter(r => r && /^\d{4}-\d{2}-\d{2}$/.test(r.data || "")).map(r => ({ ...r, d: num(r.d), feita: !!r.feita })) : [] })), fac: normalizeFacEstudos(m?.fac) };
 }
 
 function baseTCE() {
@@ -451,7 +470,13 @@ function safeRender() {
   if (a && $("#main").contains(a) && a.matches("input:not([type=checkbox]),textarea,select")) { pendingRender = true; return; }
   render();
 }
-document.addEventListener("focusout", () => setTimeout(() => { if (pendingRender) { const a = document.activeElement; if (!a || !$("#main").contains(a) || !a.matches("input:not([type=checkbox]),textarea,select")) { pendingRender = false; render(); } } }, 0));
+/* Com o dedo ou o mouse pressionado, espera soltar: redesenhar no meio do clique faria o clique se perder. */
+let ponteiro = false;
+function tentarRender() { if (!pendingRender || ponteiro) return; const a = document.activeElement; if (!a || !$("#main").contains(a) || !a.matches("input:not([type=checkbox]),textarea,select")) { pendingRender = false; render(); } }
+document.addEventListener("pointerdown", () => { ponteiro = true; }, true);
+document.addEventListener("pointerup", () => setTimeout(() => { ponteiro = false; tentarRender(); }, 0), true);
+document.addEventListener("pointercancel", () => { ponteiro = false; }, true);
+document.addEventListener("focusout", () => setTimeout(tentarRender, 0));
 
 let carregando = false;
 async function carregarDados(silencioso) {
@@ -710,7 +735,7 @@ setInterval(() => {
 }, 500);
 
 /* ---------- navegação ---------- */
-const VIEWS = ["hoje","cronometro","registrar","ciclo","edital","revisoes","desempenho","historico","ajustes"];
+const VIEWS = ["hoje","cronometro","registrar","ciclo","edital","revisoes","desempenho","historico","faculdade","ajustes"];
 let draft = null;     // pré-preenchimento do registro
 let editId = null;    // sessão em edição
 let revPend = null;   // revisão a marcar como feita ao salvar
@@ -719,6 +744,7 @@ const view = () => { const h = location.hash.slice(1); return VIEWS.includes(h) 
 window.addEventListener("hashchange", () => {
   if (prevView === "registrar" && view() !== "registrar") { editId = null; revPend = null; if (!draft?.doCronometro) draft = null; }
   if (prevView === "ciclo" && view() !== "ciclo") cicloEd = null;
+  if (prevView === "faculdade" && view() !== "faculdade") { facNovoSem = false; facEditSem = false; }
   render(); window.scrollTo(0, 0);
 });
 const go = v => { if (location.hash.slice(1) === v) render(); else location.hash = v; };
@@ -734,6 +760,7 @@ function render() {
   if (!S.loaded) return;
   const rb = $("#revBadge");
   if (S.config) { const n = revisoesLista().filter(x => x.r.data <= today()).length; rb.hidden = !n; rb.textContent = n; } else rb.hidden = true;
+  const fb = $("#facBadge"); if (fb) { const n = S.config ? facProximas(3).length : 0; fb.hidden = !n; fb.textContent = n; fb.title = "Avaliações nos próximos 3 dias"; }
   if (!S.config && !S.confirmado) {
     main.innerHTML = S.note ? `<div class="empty"><h2>Não foi possível carregar seus dados</h2><p>${esc(S.note)}</p><p class="small">Para proteger o que você já registrou, a configuração inicial só aparece depois que seus dados forem lidos.</p><button class="btn" id="tentarDeNovo">Tentar de novo</button></div>`
       : `<div class="empty"><h2>Carregando seus dados…</h2></div>`;
@@ -749,7 +776,7 @@ function render() {
     else if (el.tagName === "SELECT") { const def = [...el.options].find(o => o.defaultSelected)?.value ?? el.options[0]?.value; if (el.value !== def) keep.push({ id: el.id, val: el.value, def }); }
     else if (el.value !== el.defaultValue) keep.push({ id: el.id, val: el.value, def: el.defaultValue });
   });
-  const fns = { hoje: viewHoje, cronometro: viewCrono, registrar: viewRegistrar, ciclo: viewCiclo, edital: viewEdital, revisoes: viewRevisoes, desempenho: viewDesempenho, historico: viewHistorico, ajustes: viewAjustes };
+  const fns = { hoje: viewHoje, cronometro: viewCrono, registrar: viewRegistrar, ciclo: viewCiclo, edital: viewEdital, revisoes: viewRevisoes, desempenho: viewDesempenho, historico: viewHistorico, faculdade: viewFaculdade, ajustes: viewAjustes };
   main.innerHTML = fns[v]().replace("<!--note-->", note);
   for (const k of keep) {
     const el = document.getElementById(k.id); if (!el || !$("#main").contains(el)) continue;
@@ -817,6 +844,7 @@ function viewHoje() {
       <div class="panel"><div class="ph"><h2>Revisões para fazer</h2><a class="btn ghost sm" href="#revisoes">Ver todas</a></div>
         ${venc.length ? `<div class="list">${venc.slice(0, 5).map(revItem).join("")}</div>${venc.length > 5 ? `<p class="muted small" style="margin-top:8px">+${venc.length - 5} pendentes</p>` : ""}` : `<p class="muted">Nada para revisar hoje. ${rev.length ? `Próxima: ${fmtDate(rev[0].r.data)}.` : "Revisões aparecem aqui quando você registra uma sessão de teoria."}</p>`}</div>
     </div>
+    ${facHojeHtml()}
     <div class="grid g2">
       <div class="panel"><div class="ph"><h2>Esta semana</h2><span class="muted">${fmtH(w.total)}</span></div>
         ${colChart(w.dias.map(d => ({ v: w.porDia[d], t: w.porDia[d] ? fmtH(w.porDia[d]) : "", d: DOW[parseYmd(d).getDay()], now: d === today() })), max, p.hojeConta && p.alvoHoje ? p.alvoHoje : 0)}</div>
@@ -909,7 +937,7 @@ const binders = {
     $("#tReset").onclick = e => { if (!armed(e.currentTarget, "Confirmar descarte")) return; T.running = false; T.acc = 0; T.startedAt = 0; T.avisado = false; saveT(); keepAwake(false); render(); };
     $$("[data-alvo]").forEach(b => b.onclick = () => { T.alvoMin = +b.dataset.alvo; T.avisado = elapsed() >= T.alvoMin * 60 && T.alvoMin > 0; saveT(); render(); });
   },
-  registrar: bindRegistrar, ciclo: bindCiclo, edital: bindEdital, revisoes: bindCommon, desempenho: bindDesempenho, historico: bindHistorico, ajustes: bindAjustes
+  registrar: bindRegistrar, ciclo: bindCiclo, edital: bindEdital, revisoes: bindCommon, desempenho: bindDesempenho, historico: bindHistorico, faculdade: bindFaculdade, ajustes: bindAjustes
 };
 
 /* ---------- Registrar ---------- */
@@ -1578,6 +1606,283 @@ function bindImportEdital() {
     $("#impVoltar").onclick = () => { lerRevisao(); IMP.resultado = null; IMP.erro = ""; render(); };
     const ap = $("#impAplicar"); ap.onclick = () => { if (IMP.modo === "substituir" && !armed(ap, "Confirmar substituição")) return; aplicarImport(); };
   }
+}
+
+/* ---------- Faculdade ---------- */
+const TIPOS_FAC = ["Leitura", "Exercícios", "Trabalho", "Revisão para prova", "Resumo", "Aula gravada"];
+const idValido = v => typeof v === "string" && /^[A-Za-z0-9_-]{1,40}$/.test(v);
+const dataValida = v => /^\d{4}-\d{2}-\d{2}$/.test(String(v || ""));
+const entre = (v, d, lo, hi) => { v = Number(v); return Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : d; };
+const lerNum = v => { const x = parseFloat(String(v ?? "").replace(",", ".")); return Number.isFinite(x) ? x : null; };
+const fmtNota = v => v == null ? "—" : (Math.round(v * 10) / 10).toLocaleString("pt-BR");
+function normalizeFac(f) {
+  f = f && typeof f === "object" ? f : {};
+  const modo = f.modo === "soma" ? "soma" : "media";
+  const out = { modo, minimo: entre(f.minimo, modo === "soma" ? 60 : 6, 0, modo === "soma" ? 1000 : 10), freqMin: entre(f.freqMin, 75, 0, 100) };
+  out.semestres = (Array.isArray(f.semestres) ? f.semestres : []).filter(x => x && idValido(x.id)).map(x => ({ id: x.id, nome: String(x.nome || "Semestre").slice(0, 60) }));
+  const sids = new Set(out.semestres.map(x => x.id));
+  out.semestreAtual = sids.has(f.semestreAtual) ? f.semestreAtual : (out.semestres[out.semestres.length - 1]?.id || null);
+  out.disciplinas = (Array.isArray(f.disciplinas) ? f.disciplinas : []).filter(d => d && idValido(d.id) && sids.has(d.semestreId)).map((d, i) => ({
+    id: d.id, semestreId: d.semestreId, nome: String(d.nome || "Disciplina").slice(0, 80), professor: String(d.professor || "").slice(0, 80),
+    cor: /^#[0-9a-f]{6}$/i.test(d.cor || "") ? d.cor : CORES[i % CORES.length],
+    carga: entre(d.carga, 80, 0, 2000), faltas: entre(d.faltas, 0, 0, 2000),
+    dias: [...new Set((Array.isArray(d.dias) ? d.dias : []).map(Number).filter(x => Number.isInteger(x) && x >= 0 && x <= 6))],
+    horario: String(d.horario || "").slice(0, 40), sala: String(d.sala || "").slice(0, 40),
+    avaliacoes: (Array.isArray(d.avaliacoes) ? d.avaliacoes : []).filter(a => a && idValido(a.id)).slice(0, 40).map(a => ({
+      id: a.id, nome: String(a.nome || "Avaliação").slice(0, 60), data: dataValida(a.data) ? a.data : "",
+      valor: entre(a.valor, modo === "soma" ? 10 : 1, 0, 1000), nota: a.nota == null || a.nota === "" || !Number.isFinite(Number(a.nota)) ? null : entre(a.nota, 0, 0, 1000) }))
+  }));
+  return out;
+}
+function normalizeFacEstudos(lista) {
+  return (Array.isArray(lista) ? lista : []).filter(x => x && idValido(x.id) && dataValida(x.data)).map(x => ({
+    id: x.id, data: x.data, discId: idValido(x.discId) ? x.discId : "", minutos: Math.min(1440, num(x.minutos)),
+    tipo: TIPOS_FAC.includes(x.tipo) ? x.tipo : "Leitura", nota: String(x.nota || "").slice(0, 300), criadoEm: Number(x.criadoEm) || 0 }));
+}
+const facEstudos = () => Object.values(S.months).flatMap(m => Array.isArray(m?.fac) ? m.fac : []);
+const facDisc = id => S.config?.fac.disciplinas.find(d => d.id === id);
+const facSemestre = () => S.config.fac.semestres.find(x => x.id === S.config.fac.semestreAtual) || null;
+const facDoSemestre = () => { const sm = facSemestre(); return sm ? S.config.fac.disciplinas.filter(d => d.semestreId === sm.id) : []; };
+/* Situação da disciplina: nota até agora, quanto falta para aprovar e frequência. */
+function calcDisc(d) {
+  const F = S.config.fac, av = d.avaliacoes, feitas = av.filter(a => a.nota != null), rest = av.filter(a => a.nota == null);
+  const r = { feitas: feitas.length, total: av.length, fechada: av.length > 0 && !rest.length };
+  if (F.modo === "soma") {
+    const pts = feitas.reduce((a, x) => a + x.nota, 0), emJogo = rest.reduce((a, x) => a + x.valor, 0);
+    r.atual = feitas.length ? pts : null; r.falta = Math.max(0, F.minimo - pts); r.emJogo = emJogo;
+    r.possivel = r.falta <= emJogo + 1e-9; r.aprovaNota = pts >= F.minimo - 1e-9;
+    // ritmo: aproveitamento nas avaliações já feitas comparado ao exigido no total
+    const valorFeitas = feitas.reduce((a, x) => a + x.valor, 0), valorTotal = av.reduce((a, x) => a + x.valor, 0);
+    r.abaixoRitmo = !r.aprovaNota && valorFeitas > 0 && valorTotal > 0 && pts / valorFeitas < F.minimo / Math.max(valorTotal, F.minimo);
+  } else {
+    const pf = feitas.reduce((a, x) => a + x.valor, 0), soma = feitas.reduce((a, x) => a + x.nota * x.valor, 0), pr = rest.reduce((a, x) => a + x.valor, 0);
+    r.atual = !feitas.length ? null : pf ? soma / pf : feitas.reduce((a, x) => a + x.nota, 0) / feitas.length;
+    r.precisa = pr ? (F.minimo * (pf + pr) - soma) / pr : null;
+    r.possivel = r.precisa == null || r.precisa <= 10 + 1e-9; r.aprovaNota = r.atual != null && r.atual >= F.minimo - 1e-9;
+    r.abaixoRitmo = r.atual != null && !r.aprovaNota;
+  }
+  r.limite = Math.floor(d.carga * (1 - F.freqMin / 100) + 1e-9);
+  r.reprovFalta = d.carga > 0 && d.faltas > r.limite;
+  r.status = r.reprovFalta ? ["bad", "Reprovado por falta"] : r.fechada ? (r.aprovaNota ? ["good", "Aprovado"] : ["bad", "Abaixo da média"])
+    : !r.possivel ? ["bad", "Nota insuficiente"] : d.carga > 0 && r.limite > 0 && d.faltas >= r.limite * 0.75 ? ["warn", "Atenção às faltas"]
+    : r.abaixoRitmo ? ["warn", "Abaixo da média"] : ["neutral", "Em curso"];
+  return r;
+}
+function textoNota(r) {
+  const F = S.config.fac;
+  if (F.modo === "soma") {
+    if (r.fechada) return `${fmtNota(r.atual ?? 0)} pts de ${fmtNota(F.minimo)} necessários`;
+    if (!r.total) return "Cadastre as avaliações";
+    return r.falta <= 0 ? "Já tem os pontos para aprovar" : r.possivel ? `Faltam ${fmtNota(r.falta)} pts (${fmtNota(r.emJogo)} em jogo)` : `Faltam ${fmtNota(r.falta)} pts e só há ${fmtNota(r.emJogo)} em jogo`;
+  }
+  if (r.fechada) return `Média final ${fmtNota(r.atual)}`;
+  if (!r.total) return "Cadastre as avaliações";
+  if (r.precisa == null) return "";
+  return r.precisa <= 0 ? "Já garantiu a média" : r.possivel ? `Precisa de ${fmtNota(r.precisa)} nas próximas` : `Precisaria de ${fmtNota(r.precisa)}: acima de 10`;
+}
+function facProximas(dias) {
+  const t = today(), lim = addDays(t, dias), out = [];
+  for (const d of facDoSemestre()) for (const a of d.avaliacoes) if (a.data && a.nota == null && a.data >= t && a.data <= lim) out.push({ d, a });
+  return out.sort((x, y) => x.a.data.localeCompare(y.a.data));
+}
+const quando = data => { const n = diffDays(data, today()); return n === 0 ? "hoje" : n === 1 ? "amanhã" : `em ${n} dias`; };
+function facHojeHtml() {
+  if (!S.config?.fac?.semestres.length) return "";
+  const dow = new Date().getDay(), aulas = facDoSemestre().filter(d => d.dias.includes(dow)), prox = facProximas(7);
+  if (!aulas.length && !prox.length) return "";
+  return `<div class="panel"><div class="ph"><h2>Faculdade</h2><a class="btn ghost sm" href="#faculdade">Abrir</a></div>
+    <div class="grid g2" style="gap:12px">
+      <div><div class="label" style="margin-bottom:6px">Aulas de hoje</div>${aulas.length ? `<div class="plan">${aulas.map(d => `<div class="aula-hoje"><span class="dot" style="background:${esc(d.cor)}"></span><span class="grow trunc">${esc(d.nome)}</span><span class="muted small">${esc([d.horario, d.sala].filter(Boolean).join(" · "))}</span></div>`).join("")}</div>` : `<p class="muted small">Sem aula hoje.</p>`}</div>
+      <div><div class="label" style="margin-bottom:6px">Avaliações nos próximos 7 dias</div>${prox.length ? `<div class="plan">${prox.map(x => `<div class="aula-hoje"><span class="dot" style="background:${esc(x.d.cor)}"></span><span class="grow trunc"><b>${esc(x.a.nome)}</b> · ${esc(x.d.nome)}</span><span class="pill ${diffDays(x.a.data, today()) <= 2 ? "warn" : "neutral"}">${quando(x.a.data)}</span></div>`).join("")}</div>` : `<p class="muted small">Nenhuma avaliação marcada.</p>`}</div>
+    </div></div>`;
+}
+
+let facNovoSem = false, facEditSem = false;
+const facAbertas = new Set();
+function viewFacSemestre() {
+  const F = S.config.fac, primeiro = !F.semestres.length;
+  return `<div class="head"><div><div class="label">${primeiro ? "Primeiro acesso" : "Novo semestre"}</div><h1>Faculdade</h1></div>${primeiro ? "" : `<button class="btn ghost" id="fsCancel">Cancelar</button>`}</div><!--note-->
+  <form class="panel" id="fsForm" novalidate>
+    <h2 style="margin-bottom:6px">${primeiro ? "Cadastre seu semestre e as disciplinas" : "Começar um novo semestre"}</h2>
+    <p class="muted small" style="margin-bottom:14px;max-width:70ch">Aqui você acompanha notas, faltas, provas e o tempo de estudo de cada disciplina da graduação, separado do seu ciclo de concurso.${primeiro ? "" : " O semestre atual continua guardado e pode ser consultado depois."}</p>
+    <div class="form">
+      <label class="field span2"><span>Nome do semestre</span><input type="text" id="fsNome" maxlength="60" value="${primeiro ? "5º período" : ""}" placeholder="ex.: 6º período · 2027/1"></label>
+      <label class="field span4"><span>Disciplinas (uma por linha; dá para completar professor, horário e avaliações depois)</span><textarea id="fsDisc" style="min-height:140px" placeholder="Contabilidade Avançada&#10;Auditoria&#10;Contabilidade de Custos&#10;Direito Tributário"></textarea></label>
+    </div>
+    <p class="small" id="fsErr" role="alert" style="color:var(--bad);min-height:1.2em;margin-top:10px"></p>
+    <div class="row end"><button class="btn primary" type="submit">${primeiro ? "Criar semestre" : "Criar e mudar para ele"}</button></div>
+  </form>`;
+}
+function viewFaculdade() {
+  const F = S.config.fac;
+  if (!F.semestres.length || facNovoSem) return viewFacSemestre();
+  const sm = facSemestre(), ds = facDoSemestre(), t = today();
+  const calc = Object.fromEntries(ds.map(d => [d.id, calcDisc(d)]));
+  const comNota = ds.map(d => calc[d.id]).filter(r => r.atual != null);
+  const ini = weekStart(t), est = facEstudos(), dsIds = new Set(ds.map(d => d.id));
+  const semana = est.filter(e => e.data >= ini && e.data <= t && dsIds.has(e.discId));
+  const minSemana = semana.reduce((a, e) => a + e.minutos, 0);
+  const porDisc = {}; est.filter(e => dsIds.has(e.discId)).forEach(e => porDisc[e.discId] = (porDisc[e.discId] || 0) + e.minutos);
+  const proximas = []; for (const d of ds) for (const a of d.avaliacoes) if (a.data && a.nota == null && a.data >= t) proximas.push({ d, a });
+  proximas.sort((x, y) => x.a.data.localeCompare(y.a.data));
+  const atencao = ds.filter(d => ["bad", "warn"].includes(calc[d.id].status[0])).length;
+  const recentes = est.filter(e => dsIds.has(e.discId)).sort((a, b) => b.data.localeCompare(a.data) || b.criadoEm - a.criadoEm).slice(0, 12);
+  const soma = F.modo === "soma", rotValor = soma ? "Vale (pts)" : "Peso";
+  const discHtml = d => { const r = calc[d.id]; const [cls, txt] = r.status;
+    return `<details class="disc" data-did="${d.id}" ${facAbertas.has(d.id) ? "open" : ""}>
+    <summary><span class="chev" aria-hidden="true">▸</span><span class="dot" style="background:${esc(d.cor)}"></span>
+      <div class="grow" style="min-width:0"><div class="row between wrap" style="gap:4px 12px"><b>${esc(d.nome)}</b>
+        <span class="row" style="gap:8px"><span class="nota-big">${soma ? `${fmtNota(r.atual ?? 0)}<span class="muted small"> pts</span>` : fmtNota(r.atual)}</span><span class="pill ${cls}">${txt}</span></span></div>
+        <div class="muted small" style="margin-top:2px">${esc([d.professor, d.dias.length ? d.dias.map(x => DOW[x]).join(", ") : "", d.horario].filter(Boolean).join(" · ") || "Sem professor ou horário cadastrados")}${textoNota(r) ? ` · ${esc(textoNota(r))}` : ""} · faltas ${fmtNota(d.faltas)}/${r.limite}</div></div></summary>
+    <div class="corpo">
+      <div><div class="ph" style="margin-bottom:6px"><h3>Avaliações</h3><button type="button" class="btn sm" data-faadd="${d.id}">+ Avaliação</button></div>
+        ${d.avaliacoes.length ? `<div class="scroll-x"><table class="aval"><thead><tr><th>Avaliação</th><th>Data</th><th class="r">${rotValor}</th><th class="r">Nota</th><th></th></tr></thead><tbody>
+        ${d.avaliacoes.map(a => `<tr><td><input type="text" class="w-nome" id="fan_${a.id}" data-fa="${d.id}:${a.id}:nome" value="${esc(a.nome)}" aria-label="Nome da avaliação"></td>
+          <td><input type="date" class="w-data" id="fad_${a.id}" data-fa="${d.id}:${a.id}:data" value="${esc(a.data)}" aria-label="Data"></td>
+          <td class="r"><input type="number" class="w-num" id="fav_${a.id}" data-fa="${d.id}:${a.id}:valor" min="0" step="0.5" value="${a.valor}" aria-label="${rotValor}"></td>
+          <td class="r"><input type="number" class="w-num" id="fat_${a.id}" data-fa="${d.id}:${a.id}:nota" min="0" step="0.1" value="${a.nota ?? ""}" placeholder="—" aria-label="Nota"></td>
+          <td class="r"><button type="button" class="btn ghost icon sm" data-fadel="${d.id}:${a.id}" aria-label="Remover avaliação">×</button></td></tr>`).join("")}
+        </tbody></table></div>
+        <p class="muted small" style="margin-top:6px">${soma ? `Some os pontos: aprova com ${fmtNota(F.minimo)}. “Vale” é quanto a avaliação vale no total.` : `Média ponderada de 0 a 10, aprova com ${fmtNota(F.minimo)}. Deixe a nota em branco até sair o resultado.`}</p>`
+        : `<p class="muted small">Cadastre provas, trabalhos e atividades com a data${soma ? " e quanto cada uma vale" : " e o peso"}. Com as notas, o app calcula ${soma ? "quantos pontos faltam" : "a nota que você precisa"} para aprovar.</p>`}</div>
+      <div><h3 style="margin-bottom:6px">Faltas</h3>
+        <div class="faltas"><span class="num">${fmtNota(d.faltas)} / ${r.limite} h/a</span>
+          <div class="bar"><i style="width:${r.limite ? Math.min(100, d.faltas / r.limite * 100) : 0}%;background:var(--${r.reprovFalta ? "bad" : d.faltas >= r.limite * .75 ? "warn" : "good"})"></i></div>
+          <button type="button" class="btn sm" data-ffalta="${d.id}:-1" ${d.faltas <= 0 ? "disabled" : ""} aria-label="Tirar uma falta">−1</button><button type="button" class="btn sm" data-ffalta="${d.id}:1">+1</button><button type="button" class="btn sm" data-ffalta="${d.id}:2">+2</button></div>
+        <p class="muted small" style="margin-top:6px">${d.carga ? `Limite de ${100 - F.freqMin}% de ${d.carga} h/a. Restam ${fmtNota(Math.max(0, r.limite - d.faltas))} h/a.` : "Informe a carga horária para calcular o limite de faltas."}</p></div>
+      <form class="form" data-fdform="${d.id}">
+        <label class="field span2"><span>Nome</span><input type="text" id="fdn_${d.id}" value="${esc(d.nome)}" maxlength="80"></label>
+        <label class="field span2"><span>Professor(a)</span><input type="text" id="fdp_${d.id}" value="${esc(d.professor)}" maxlength="80"></label>
+        <label class="field"><span>Carga horária (h/a)</span><input type="number" id="fdc_${d.id}" min="0" step="1" value="${d.carga}"></label>
+        <label class="field"><span>Horário</span><input type="text" id="fdh_${d.id}" value="${esc(d.horario)}" maxlength="40" placeholder="19h–22h"></label>
+        <label class="field"><span>Sala</span><input type="text" id="fds_${d.id}" value="${esc(d.sala)}" maxlength="40"></label>
+        <label class="field"><span>Cor</span><select id="fdk_${d.id}">${CORES.map((c, i) => `<option value="${c}" ${c === d.cor ? "selected" : ""}>${NOMES_COR[i]}</option>`).join("")}</select></label>
+        <div class="field span4"><span>Dias de aula</span><div class="chips" id="fdd_${d.id}" role="group" aria-label="Dias de aula">${[1, 2, 3, 4, 5, 6, 0].map(x => `<button type="button" class="chip" data-fdia="${x}" aria-pressed="${d.dias.includes(x)}">${DOW[x]}</button>`).join("")}</div></div>
+        <div class="field span4"><div class="row between wrap"><button type="button" class="btn danger sm" data-fddel="${d.id}">Excluir disciplina</button><button type="submit" class="btn primary sm">Salvar disciplina</button></div></div>
+      </form>
+    </div></details>`; };
+  return `<div class="head"><div><div class="label">${esc(sm.nome)} · ${ds.length} ${ds.length === 1 ? "disciplina" : "disciplinas"}</div><h1>Faculdade</h1></div>
+    <div class="row wrap"><select id="fSem" aria-label="Semestre" style="width:auto;max-width:220px">${F.semestres.map(x => `<option value="${x.id}" ${x.id === sm.id ? "selected" : ""}>${esc(x.nome)}</option>`).join("")}</select><button class="btn" id="fNovoSem">Novo semestre</button></div></div><!--note-->
+  <div class="grid">
+    <div class="grid g3">
+      <div class="panel stat"><div class="label">${soma ? "Aprovadas por nota" : "Média do semestre"}</div><div class="v">${soma ? `${ds.filter(d => calc[d.id].aprovaNota).length}/${ds.length}` : fmtNota(comNota.length ? comNota.reduce((a, r) => a + r.atual, 0) / comNota.length : null)}</div><div class="s">${atencao ? `${atencao} ${atencao === 1 ? "disciplina pede" : "disciplinas pedem"} atenção` : "nenhuma disciplina em risco"}</div></div>
+      <div class="panel stat"><div class="label">Estudo nesta semana</div><div class="v">${fmtH(minSemana)}</div><div class="s">${semana.length} ${semana.length === 1 ? "registro" : "registros"} da faculdade</div></div>
+      <div class="panel stat"><div class="label">Próxima avaliação</div>${proximas.length ? `<div class="v" style="font-size:1.25rem">${quando(proximas[0].a.data)}</div><div class="s trunc">${esc(proximas[0].a.nome)} · ${esc(proximas[0].d.nome)}</div>` : `<div class="v" style="font-size:1.25rem">—</div><div class="s">nenhuma data cadastrada</div>`}</div>
+    </div>
+    <div class="panel"><div class="ph"><h2>Disciplinas</h2><span class="muted small">toque para ver notas, faltas e dados</span></div>
+      ${ds.length ? ds.map(discHtml).join("") : `<p class="muted">Nenhuma disciplina neste semestre. Adicione abaixo.</p>`}
+      <form class="row wrap" id="fAddDisc" style="margin-top:12px"><input type="text" id="fadNome" maxlength="80" placeholder="Nova disciplina" style="flex:1;min-width:180px;width:auto" aria-label="Nome da nova disciplina"><button class="btn" type="submit">Adicionar disciplina</button></form>
+    </div>
+    <div class="grid g2">
+      <form class="panel" id="fEstForm" novalidate><h2 style="margin-bottom:12px">Registrar estudo</h2>
+        ${ds.length ? `<div class="form">
+          <label class="field span2"><span>Disciplina</span><select id="feDisc"><option value="">Escolha</option>${ds.map(d => `<option value="${d.id}">${esc(d.nome)}</option>`).join("")}</select></label>
+          <label class="field"><span>Data</span><input type="date" id="feData" value="${t}" max="${t}"></label>
+          <label class="field"><span>Tempo (min)</span><input type="number" id="feMin" min="1" max="1440" step="5" inputmode="numeric" placeholder="ex.: 60"></label>
+          <label class="field span2"><span>Tipo</span><select id="feTipo">${TIPOS_FAC.map(x => `<option>${x}</option>`).join("")}</select></label>
+          <label class="field span2"><span>Anotação</span><input type="text" id="feNota" maxlength="300" placeholder="Capítulo, lista, trabalho…"></label>
+        </div>
+        <p class="small" id="feErr" role="alert" style="color:var(--bad);min-height:1.2em;margin-top:10px"></p>
+        <div class="row end"><button class="btn primary" type="submit">Salvar estudo</button></div>` : `<p class="muted">Adicione uma disciplina para registrar estudos.</p>`}
+      </form>
+      <div class="panel"><div class="ph"><h2>Próximas avaliações</h2><span class="num muted">${proximas.length}</span></div>
+        ${proximas.length ? `<div class="list">${proximas.slice(0, 8).map(x => `<div class="li row"><span class="dot" style="background:${esc(x.d.cor)}"></span><div class="grow" style="min-width:0"><div class="trunc"><b>${esc(x.a.nome)}</b></div><div class="muted small trunc">${esc(x.d.nome)} · ${fmtDate(x.a.data)}</div></div><span class="pill ${diffDays(x.a.data, t) <= 2 ? "warn" : "neutral"}">${quando(x.a.data)}</span></div>`).join("")}</div>` : `<p class="muted">Cadastre a data das provas e trabalhos nas disciplinas para ver o que vem por aí.</p>`}</div>
+    </div>
+    <div class="grid g2">
+      <div class="panel"><div class="ph"><h2>Estudos recentes</h2><span class="muted small">${fmtH(Object.values(porDisc).reduce((a, b) => a + b, 0))} no semestre</span></div>
+        ${recentes.length ? `<div class="list">${recentes.map(e => { const d = facDisc(e.discId); return `<div class="li row"><span class="dot" style="background:${esc(d?.cor || "#888888")}"></span><div class="grow" style="min-width:0"><div class="trunc"><b>${esc(d?.nome || "Disciplina removida")}</b> · ${esc(e.tipo)}</div><div class="muted small trunc">${fmtDate(e.data)}${e.nota ? ` · ${esc(e.nota)}` : ""}</div></div><span class="num muted small">${fmtH(e.minutos)}</span><button class="btn ghost sm danger" data-fedel="${e.id}">Apagar</button></div>`; }).join("")}</div>` : `<p class="muted">Os estudos que você registrar aparecem aqui.</p>`}</div>
+      <div class="panel"><h2>Tempo por disciplina</h2>${ds.length && Object.keys(porDisc).length ? `<div class="list">${ds.map(d => ({ d, m: porDisc[d.id] || 0 })).sort((a, b) => b.m - a.m).map(x => `<div class="li"><div class="row between"><span class="trunc">${esc(x.d.nome)}</span><span class="num muted small">${fmtH(x.m)}</span></div><div class="bar" style="margin-top:6px"><i style="width:${x.m / Math.max(1, ...Object.values(porDisc)) * 100}%;background:${esc(x.d.cor)}"></i></div></div>`).join("")}</div>` : `<p class="muted">Sem estudos registrados neste semestre.</p>`}</div>
+    </div>
+    <details class="panel"><summary style="cursor:pointer"><b>Regras de aprovação e semestre</b> <span class="muted small">· ${soma ? `soma de pontos, aprova com ${fmtNota(F.minimo)}` : `média ${fmtNota(F.minimo)}`} · frequência ${F.freqMin}%</span></summary>
+      <form id="fRegras" class="form" style="margin-top:14px">
+        <div class="field span2"><span>Como a faculdade calcula a nota</span><div class="chips" id="frModo" role="group" aria-label="Cálculo da nota"><button type="button" class="chip" data-frmodo="media" aria-pressed="${!soma}">Média ponderada (0 a 10)</button><button type="button" class="chip" data-frmodo="soma" aria-pressed="${soma}">Soma de pontos</button></div></div>
+        <label class="field"><span id="frMinRot">${soma ? "Pontos para aprovar" : "Média para aprovar"}</span><input type="number" id="frMin" min="0" step="0.5" value="${F.minimo}"></label>
+        <label class="field"><span>Frequência mínima (%)</span><input type="number" id="frFreq" min="0" max="100" step="1" value="${F.freqMin}"></label>
+        <label class="field span2"><span>Nome do semestre</span><input type="text" id="frSemNome" maxlength="60" value="${esc(sm.nome)}"></label>
+        <div class="field span2" style="justify-content:flex-end"><div class="row wrap end"><button type="button" class="btn danger sm" id="frSemDel">Excluir este semestre</button><button type="submit" class="btn primary sm">Salvar regras</button></div></div>
+      </form></details>
+  </div>`;
+}
+function bindFaculdade() {
+  const F = S.config.fac;
+  const fs = $("#fsForm");
+  if (fs) {
+    const c = $("#fsCancel"); if (c) c.onclick = () => { facNovoSem = false; render(); };
+    fs.onsubmit = e => { e.preventDefault();
+      const nome = $("#fsNome").value.trim(); if (!nome) { $("#fsErr").textContent = "Dê um nome ao semestre."; $("#fsNome").focus(); return; }
+      if (F.semestres.some(x => chave(x.nome) === chave(nome))) { $("#fsErr").textContent = "Já existe um semestre com esse nome."; return; }
+      const sem = { id: uid(), nome }; F.semestres.push(sem); F.semestreAtual = sem.id;
+      const vistos = new Set();
+      $("#fsDisc").value.split("\n").map(l => l.replace(/^\s*[\d.)\-–•*]+\s*/, "").trim()).filter(Boolean).forEach(n => { const k = chave(n); if (vistos.has(k)) return; vistos.add(k);
+        F.disciplinas.push({ id: uid(), semestreId: sem.id, nome: n.slice(0, 80), professor: "", cor: CORES[(vistos.size - 1) % CORES.length], carga: 80, faltas: 0, dias: [], horario: "", sala: "", avaliacoes: [] }); });
+      facNovoSem = false; saveConfig(); render(); toast(`Semestre criado com ${vistos.size} ${vistos.size === 1 ? "disciplina" : "disciplinas"}`); };
+    return;
+  }
+  $("#fSem").onchange = e => { F.semestreAtual = e.target.value; facAbertas.clear(); saveConfig(); render(); };
+  $("#fNovoSem").onclick = () => { facNovoSem = true; render(); };
+  $$("details.disc").forEach(d => d.ontoggle = () => d.open ? facAbertas.add(d.dataset.did) : facAbertas.delete(d.dataset.did));
+  // avaliações: cada campo salva ao sair dele
+  $$("[data-fa]").forEach(inp => inp.onchange = () => {
+    const [did, aid, campo] = inp.dataset.fa.split(":"); const a = facDisc(did)?.avaliacoes.find(x => x.id === aid); if (!a) return;
+    if (campo === "nome") a.nome = inp.value.trim().slice(0, 60) || "Avaliação";
+    else if (campo === "data") a.data = dataValida(inp.value) ? inp.value : "";
+    else if (campo === "valor") a.valor = Math.max(0, lerNum(inp.value) ?? a.valor);
+    else { const v = lerNum(inp.value); const max = F.modo === "soma" ? a.valor || 1000 : 10;
+      if (v != null && v > max) { toast(F.modo === "soma" ? `A nota passou do valor da avaliação (${fmtNota(max)}).` : "A nota vai de 0 a 10."); inp.value = a.nota ?? ""; return; }
+      a.nota = v == null ? null : Math.max(0, v); }
+    // redesenha só depois que o foco chegar ao próximo campo, para não perder o que está sendo digitado
+    saveConfig(); setTimeout(safeRender, 0);
+  });
+  $$("[data-faadd]").forEach(b => b.onclick = () => { const d = facDisc(b.dataset.faadd); if (!d) return; if (d.avaliacoes.length >= 40) { toast("Limite de 40 avaliações por disciplina."); return; }
+    const n = d.avaliacoes.length + 1; const a = { id: uid(), nome: `Avaliação ${n}`, data: "", valor: F.modo === "soma" ? 10 : 1, nota: null }; d.avaliacoes.push(a);
+    facAbertas.add(d.id); saveConfig(); render(); const el = $("#fan_" + a.id); if (el) { el.focus(); el.select(); } });
+  $$("[data-fadel]").forEach(b => b.onclick = () => { if (!armed(b, "Remover?")) return; const [did, aid] = b.dataset.fadel.split(":"); const d = facDisc(did); if (!d) return; d.avaliacoes = d.avaliacoes.filter(x => x.id !== aid); saveConfig(); render(); });
+  $$("[data-ffalta]").forEach(b => b.onclick = () => { const [did, n] = b.dataset.ffalta.split(":"); const d = facDisc(did); if (!d) return; d.faltas = Math.max(0, d.faltas + +n); saveConfig(); render(); });
+  $$("[data-fdform]").forEach(form => {
+    const did = form.dataset.fdform;
+    $$("[data-fdia]", form).forEach(b => b.onclick = () => b.setAttribute("aria-pressed", b.getAttribute("aria-pressed") !== "true"));
+    form.onsubmit = e => { e.preventDefault(); const d = facDisc(did); if (!d) return;
+      const nome = $("#fdn_" + did).value.trim();
+      if (!nome) { toast("Dê um nome à disciplina."); return; }
+      if (facDoSemestre().some(o => o.id !== did && chave(o.nome) === chave(nome))) { toast("Já existe outra disciplina com esse nome neste semestre."); return; }
+      d.nome = nome.slice(0, 80); d.professor = $("#fdp_" + did).value.trim().slice(0, 80); d.carga = Math.max(0, Math.round(lerNum($("#fdc_" + did).value) ?? d.carga));
+      d.horario = $("#fdh_" + did).value.trim().slice(0, 40); d.sala = $("#fds_" + did).value.trim().slice(0, 40); d.cor = $("#fdk_" + did).value;
+      d.dias = $$("[data-fdia][aria-pressed=true]", form).map(b => +b.dataset.fdia);
+      saveConfig(); render(); toast("Disciplina salva"); };
+  });
+  $$("[data-fddel]").forEach(b => b.onclick = () => { const did = b.dataset.fddel; const n = facEstudos().filter(e => e.discId === did).length;
+    if (!armed(b, n ? `Excluir (${n} estudos ficam sem disciplina)` : "Confirmar exclusão")) return;
+    F.disciplinas = F.disciplinas.filter(d => d.id !== did); facAbertas.delete(did); saveConfig(); render(); toast("Disciplina excluída"); });
+  $("#fAddDisc").onsubmit = e => { e.preventDefault(); const nome = $("#fadNome").value.trim(); if (!nome) { $("#fadNome").focus(); return; }
+    if (facDoSemestre().some(o => chave(o.nome) === chave(nome))) { toast("Essa disciplina já está no semestre."); return; }
+    const d = { id: uid(), semestreId: F.semestreAtual, nome: nome.slice(0, 80), professor: "", cor: CORES[facDoSemestre().length % CORES.length], carga: 80, faltas: 0, dias: [], horario: "", sala: "", avaliacoes: [] };
+    F.disciplinas.push(d); facAbertas.add(d.id); saveConfig(); render(); toast("Disciplina adicionada"); };
+  const ef = $("#fEstForm");
+  if (ef && $("#feDisc")) ef.onsubmit = e => { e.preventDefault();
+    const x = { id: uid(), data: $("#feData").value || today(), discId: $("#feDisc").value, minutos: Math.min(1440, Math.max(0, Math.round(lerNum($("#feMin").value) || 0))), tipo: $("#feTipo").value, nota: $("#feNota").value.trim().slice(0, 300), criadoEm: Date.now() };
+    const err = !x.discId ? "Escolha a disciplina." : x.data > today() ? "A data não pode estar no futuro." : !x.minutos ? "Informe o tempo de estudo." : "";
+    if (err) { $("#feErr").textContent = err; return; }
+    const btn = ef.querySelector("button[type=submit]"); if (btn.disabled) return; btn.disabled = true;
+    const k = monthKey(x.data); const m = (S.months[k] ??= { sessoes: [], fac: [] }); (m.fac ??= []).push(x); saveMonth(k);
+    render(); toast(`Estudo de ${fmtH(x.minutos)} salvo`); };
+  $$("[data-fedel]").forEach(b => b.onclick = () => { if (!armed(b, "Confirmar")) return;
+    for (const [k, m] of Object.entries(S.months)) { const i = (m.fac || []).findIndex(e => e.id === b.dataset.fedel); if (i >= 0) { m.fac.splice(i, 1); saveMonth(k); break; } }
+    render(); toast("Estudo apagado"); });
+  let modo = F.modo;
+  $$("[data-frmodo]").forEach(b => b.onclick = () => { modo = b.dataset.frmodo; $$("[data-frmodo]").forEach(x => x.setAttribute("aria-pressed", x === b));
+    $("#frMinRot").textContent = modo === "soma" ? "Pontos para aprovar" : "Média para aprovar"; if (modo !== F.modo) $("#frMin").value = modo === "soma" ? 60 : 6; });
+  $("#fRegras").onsubmit = e => { e.preventDefault();
+    const min = lerNum($("#frMin").value), freq = lerNum($("#frFreq").value), nome = $("#frSemNome").value.trim();
+    if (min == null || min < 0 || (modo === "media" && min > 10)) { toast(modo === "media" ? "A média para aprovar vai de 0 a 10." : "Informe os pontos para aprovar."); return; }
+    if (freq == null || freq < 0 || freq > 100) { toast("A frequência mínima vai de 0 a 100%."); return; }
+    if (nome && F.semestres.some(x => x.id !== F.semestreAtual && chave(x.nome) === chave(nome))) { toast("Já existe outro semestre com esse nome."); return; }
+    if (modo !== F.modo) F.disciplinas.forEach(d => d.avaliacoes.forEach(a => { a.valor = modo === "soma" ? 10 : 1; }));
+    F.modo = modo; F.minimo = min; F.freqMin = Math.round(freq); const sm = facSemestre(); if (sm && nome) sm.nome = nome.slice(0, 60);
+    saveConfig(); render(); toast("Regras salvas"); };
+  const sd = $("#frSemDel"); sd.onclick = () => { const sm = facSemestre(); if (!sm) return; const n = facDoSemestre().length;
+    if (!armed(sd, n ? `Excluir semestre e ${n} disciplinas?` : "Confirmar exclusão")) return;
+    F.disciplinas = F.disciplinas.filter(d => d.semestreId !== sm.id); F.semestres = F.semestres.filter(x => x.id !== sm.id);
+    F.semestreAtual = F.semestres[F.semestres.length - 1]?.id || null; facAbertas.clear(); saveConfig(); render(); toast("Semestre excluído"); };
 }
 
 /* ---------- Revisões ---------- */
