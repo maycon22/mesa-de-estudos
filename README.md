@@ -20,6 +20,8 @@ O menu lateral tem três módulos, cada um com as suas abas:
 
 Cronômetro, registro, desempenho, histórico e assistente aparecem em todos os módulos, já filtrados pelo módulo. O endereço segue o formato `#modulo/aba` (ex.: `#concursos/edital`); endereços antigos continuam funcionando.
 
+Em **Ajustes → Módulos** cada módulo pode ser desativado (só some do menu; os registros continuam guardados). Em **Ajustes → Apagar tudo e começar do zero** todos os registros e arquivos enviados são apagados da conta, com confirmação digitada e cópia de segurança opcional neste aparelho.
+
 O app inteiro é o `index.html` (HTML, CSS e JavaScript, sem etapa de build), publicado no GitHub Pages. Os dados ficam no Supabase, com login e regras de acesso por usuário (RLS).
 
 ## Arquivos

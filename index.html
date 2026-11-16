@@ -393,7 +393,7 @@ main.em-modulo .mod-ocultar{display:none!important}
 }
 .mod-card .badge{position:absolute;left:46px;right:auto;top:7px;width:auto;min-width:18px}
 @media (max-width:860px){
-  nav.rail{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr)) auto auto;align-items:stretch;gap:6px!important;overflow:visible!important}
+  nav.rail{display:grid!important;grid-template-columns:repeat(var(--nmods,3),minmax(0,1fr)) auto auto;align-items:stretch;gap:6px!important;overflow:visible!important}
   .mods{display:contents}
   .mod-card{flex-direction:column;align-items:center!important;text-align:center;gap:3px;padding:6px 2px!important;border-radius:12px!important}
   .mod-txt{align-items:center}.mod-t{font-size:.72rem}
@@ -402,6 +402,29 @@ main.em-modulo .mod-ocultar{display:none!important}
   .tema-txt{display:none}
   .rail .timer-mini,.rail .sync{grid-column:1/-1;margin:0!important}
 }
+
+/* Ajustes: grupos, módulos e zona de perigo */
+[hidden]{display:none!important}
+.aj-grupo{padding-top:14px;margin-top:14px;border-top:1px solid var(--line)}
+.aj-grupo:first-of-type{border-top:0;margin-top:6px;padding-top:4px}
+.aj-gt{display:flex;align-items:center;gap:8px;font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:0 0 10px;font-weight:700}
+.aj-dica{display:block;margin-top:4px;color:var(--muted);font-size:.78rem}
+.mod-cfg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.mod-opt{display:flex;align-items:flex-start;gap:10px;padding:12px;border:1px solid var(--line);border-radius:12px;cursor:pointer;background:var(--surface)}
+.mod-opt:has(input:checked){border-color:var(--mc);background:color-mix(in srgb,var(--mc) 7%,var(--surface))}
+.mod-opt:has(input:disabled){cursor:default}
+.mod-opt input{margin-top:2px;flex:none}
+.mod-opt .mod-ic{width:36px;height:36px;border-radius:10px}
+.mod-opt-t{display:flex;flex-direction:column;gap:3px;min-width:0}
+.mod-opt .mod-st{color:var(--muted)}
+.mod-opt:has(input:checked) .mod-st{color:var(--ink);font-weight:600}
+.perigo{border-color:color-mix(in srgb,var(--bad) 45%,var(--line))}
+.perigo h2{color:var(--bad-ink)}
+.zer-box{border-top:1px solid var(--line);padding-top:12px}
+.zer-passos{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:10px}
+.btn.danger-solid{background:var(--bad);border-color:var(--bad);color:var(--on-bad)}
+.btn.danger-solid:disabled{opacity:.6;cursor:default}
+@media (max-width:860px){.mod-cfg{grid-template-columns:minmax(0,1fr)}}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
 </head>
@@ -623,6 +646,7 @@ const resumoConcurso = c => calcularEdital(materiasDoConcurso(c), null, desempen
 function normalizeConfig(c) {
   if (!c || typeof c !== "object") return null;
   c.materias = Array.isArray(c.materias) ? c.materias : [];
+  { const mo = c.modulos && typeof c.modulos === "object" ? c.modulos : {}; c.modulos = Object.fromEntries(["faculdade", "concursos", "desenvolvimento"].map(k => [k, mo[k] !== false])); if (!Object.values(c.modulos).some(Boolean)) c.modulos = { faculdade: true, concursos: true, desenvolvimento: true }; }
   const idOk = v => typeof v === "string" && /^[A-Za-z0-9_-]{1,40}$/.test(v);
   c.materias.forEach((m, i) => { if (!idOk(m.id)) m.id = uid(); m.nome = String(m.nome || "Matéria"); m.horasCiclo = Math.min(40, Math.max(0, Number(m.horasCiclo) || 0)); if (!/^#[0-9a-f]{6}$/i.test(m.cor || "")) m.cor = CORES[i % CORES.length]; m.topicos = Array.isArray(m.topicos) ? m.topicos : [];
     if (!AREAS.some(a => a.id === m.area)) m.area = adivinharArea(m.nome);
@@ -907,7 +931,7 @@ const chaveCache = () => "mesa-cache:" + userId, chavePend = () => "mesa-pendent
 const pendentesLocais = () => new Set(ls.get(chavePend()) || []);
 const marcarPendente = (k, sim) => { const p = pendentesLocais(); sim ? p.add(k) : p.delete(k); ls.set(chavePend(), [...p]); atualizarSync(); };
 function salvarCache() {
-  if (!userId) return;
+  if (!userId || ZERANDO) return;
   const p = pendentesLocais();
   const dados = { config: S.config, months: S.months, ver: Object.fromEntries(Object.entries(S.srv).filter(([, v]) => v).map(([k, v]) => [k, v.ver])),
     base: Object.fromEntries([...p].filter(k => S.srv[k]).map(k => [k, S.srv[k].dados])) };
@@ -942,6 +966,7 @@ const ADP = {
   }
 };
 async function writeDoc(key) {
+  if (ZERANDO) return;
   salvarCache();
   if (!sb || !userId) return;
   marcarPendente(key, true);
@@ -973,7 +998,7 @@ function findSessao(id) { for (const [k, m] of Object.entries(S.months)) { const
 const pendente = k => !!(writing[k] || queued[k] || (userId && pendentesLocais().has(k)));
 function applyDocs(docs) {
   const antes = { config: S.config, months: S.months };
-  const meses = {}; let cfg = null, temCfg = false;
+  const meses = {}; let cfg = null, temCfg = false; S.chaves = docs.map(d => d[0]);
   for (const [k, v, ver] of docs) {
     if (k === "config") { cfg = v; temCfg = true; }
     else if (/^m_\d{4}-\d{2}$/.test(k)) meses[k] = normalizeMes(clone(v));
@@ -1632,21 +1657,28 @@ const abasDe = id => MOD_POR_ID[id].grupos.flatMap(g => g[1].map(a => a[0]));
 const viewDaAba = a => a.startsWith("fac-") ? "faculdade" : a.startsWith("org-") ? "organizacao" : a;
 const MOD = (() => { const p = ls.get("mesa-modulo") || {}; return { atual: MOD_POR_ID[p.atual] ? p.atual : "concursos", ultima: p.ultima && typeof p.ultima === "object" ? p.ultima : {} }; })();
 const salvarMOD = () => ls.set("mesa-modulo", { atual: MOD.atual, ultima: MOD.ultima });
+/* Módulos ligados em Ajustes (ficam na configuração da conta; desligar só esconde, nada é apagado) */
+const modAtivo = id => !(S.config && S.config.modulos && S.config.modulos[id] === false);
+const modsAtivos = () => { const l = MODULOS.filter(m => modAtivo(m.id)); return l.length ? l : MODULOS; };
 function rotaAtual() {
   const h = decodeURIComponent(location.hash.slice(1));
   if (h === "ajustes") return { mod: MOD.atual, aba: "", v: "ajustes" };
+  const ativos = modsAtivos(), base = modAtivo(MOD.atual) ? MOD.atual : ativos[0].id;
+  const abaDe = m => abasDe(m).includes(MOD.ultima[m]) ? MOD.ultima[m] : MOD_POR_ID[m].inicio;
   const [m, a] = h.split("/");
-  if (MOD_POR_ID[m]) { const ok = a && abasDe(m).includes(a); const aba = ok ? a : (abasDe(m).includes(MOD.ultima[m]) ? MOD.ultima[m] : MOD_POR_ID[m].inicio);
-    if (aba === "cronometro" && ativo() && T.amb !== m && MOD_POR_ID[T.amb]) return { mod: T.amb, aba, v: "cronometro", aviso: `O cronômetro está rodando em ${MOD_POR_ID[T.amb].nome}. Encerre a sessão para cronometrar outro módulo.` };
-    return { mod: m, aba, v: viewDaAba(aba) }; }
-  // endereço antigo: escolhe o módulo pela tela (e, no registro e no cronômetro, pelo ambiente em uso)
+  if (MOD_POR_ID[m]) {
+    if (!modAtivo(m)) { const ab = abaDe(base); return { mod: base, aba: ab, v: viewDaAba(ab), aviso: `O módulo ${MOD_POR_ID[m].nome} está desativado. Para usar de novo, ative em Ajustes → Módulos.` }; }
+    const aba = a && abasDe(m).includes(a) ? a : abaDe(m);
+    if (aba === "cronometro" && ativo() && T.amb !== m && MOD_POR_ID[T.amb] && modAtivo(T.amb)) return { mod: T.amb, aba, v: "cronometro", aviso: `O cronômetro está rodando em ${MOD_POR_ID[T.amb].nome}. Encerre a sessão para cronometrar outro módulo.` };
+    return { mod: m, aba, v: viewDaAba(aba) };
+  }
+  // endereço antigo: escolhe o módulo pela tela (e, no registro e no cronômetro, pelo ambiente em uso), só entre os módulos ativos
   const v = VIEWS.includes(h) ? h : "hoje";
-  let aba = v === "faculdade" ? "fac-" + FAC.aba : v === "organizacao" ? "org-" + ORG.aba : v, mod = MOD.atual;
-  let amb = null;
+  let aba = v === "faculdade" ? "fac-" + FAC.aba : v === "organizacao" ? "org-" + ORG.aba : v, mod = base, amb = null;
   if (v === "registrar") amb = editId ? acharRegistro(editId)?.amb : draft?.amb;
   if (v === "cronometro" && ativo()) amb = T.amb;
-  if (amb) mod = amb;
-  if (!abasDe(mod).includes(aba)) mod = mod === "faculdade" && v === "hoje" ? "faculdade" : (MODULOS.find(x => abasDe(x.id).includes(aba))?.id || mod);
+  if (amb && MOD_POR_ID[amb] && modAtivo(amb)) mod = amb;
+  if (!abasDe(mod).includes(aba)) mod = mod === "faculdade" && v === "hoje" ? "faculdade" : (ativos.find(x => abasDe(x.id).includes(aba))?.id || mod);
   if (!abasDe(mod).includes(aba)) aba = MOD_POR_ID[mod].inicio;
   return { mod, aba, v: viewDaAba(aba) };
 }
@@ -1682,7 +1714,7 @@ function sincronizarAbaInterna() {
 }
 function railHtml() {
   return `<div class="brand"><i></i>Mesa de Estudos</div>
-    <div class="mods">${MODULOS.map(m => `<a class="mod-card" href="#${m.id}" data-mod="${m.id}" style="--mc:${m.cor}"><span class="mod-ic">${icone(m.id)}</span>
+    <div class="mods">${modsAtivos().map(m => `<a class="mod-card" href="#${m.id}" data-mod="${m.id}" style="--mc:${m.cor}"><span class="mod-ic">${icone(m.id)}</span>
       <span class="mod-txt"><span class="mod-t"><span class="mod-n">${m.n}. </span><span class="mod-nome-l">${m.nome}</span><span class="mod-nome-c">${m.curto}</span></span><span class="mod-s">${m.sub}</span></span><span class="badge" id="${m.badge}" hidden>0</span></a>`).join("")}</div>
     <a class="rail-aj" href="#ajustes" data-mod="ajustes" aria-label="Ajustes">${icone("ajustes")}<span>Ajustes</span></a>`;
 }
@@ -1713,7 +1745,7 @@ const go = v => { if (location.hash.slice(1) === v) render(); else location.hash
 function render() {
   sincronizarAbaInterna();
   const rota = aplicarRota(), v = rota.v; prevView = v; pendingRender = false;
-  if (!$("#railMods .mods")) $("#railMods").innerHTML = railHtml();
+  { const rm = $("#railMods"), sig = modsAtivos().map(m => m.id).join(","); if (rm.dataset.sig !== sig || !$("#railMods .mods")) { rm.innerHTML = railHtml(); rm.dataset.sig = sig; $("#nav").style.setProperty("--nmods", modsAtivos().length); } }
   $$("#nav [data-mod]").forEach(a => a.dataset.mod === (v === "ajustes" ? "ajustes" : rota.mod) ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current"));
   queueMicrotask(() => aplicarTema(tema));
   const main = $("#main");
@@ -1722,7 +1754,7 @@ function render() {
   if (semMenu) { main.innerHTML = viewAuth(); bindAuth(); return; }
   if (!S.loaded) return;
   const mods = $("#railMods .mods"); if (mods) mods.hidden = !S.config;
-  const rb = $("#revBadge");
+  const rb = $("#revBadge") || document.createElement("span");
   if (S.config) { const n = revisoesLista().filter(x => x.r.data <= today() && x.r.origem.amb === "concursos").length; rb.hidden = !n; rb.textContent = n; rb.title = "Revisões de concursos para hoje ou atrasadas"; } else rb.hidden = true;
   const fb = $("#facBadge"); if (fb) { const n = S.config ? facProximas(3).length : 0; fb.hidden = !n; fb.textContent = n; fb.title = "Avaliações nos próximos 3 dias"; }
   const ob = $("#orgBadge"); if (ob) { const n = S.config ? contagemOrg() : 0; ob.hidden = !n; ob.textContent = n; ob.title = "Tarefas de hoje ou atrasadas e lembretes vencidos"; }
@@ -1766,12 +1798,13 @@ function viewSetup() {
       <p class="muted" style="margin:8px 0 14px">Cadastre suas próprias matérias e tópicos, cole o conteúdo programático e defina as horas de cada uma no ciclo.</p>
       <button class="btn" id="setupZero">Criar mesa vazia</button></div>
   </div>
+  <div id="setupCopia"></div>
   <div class="panel" style="margin-top:16px"><h2>Já tem um backup?</h2><p class="muted" style="margin:8px 0 14px">Restaure um arquivo .json exportado em Ajustes.</p>${importControl()}</div>`;
 }
 function bindSetup() {
   $("#setupTce").onclick = () => { S.config = defaultConfig(baseTCE()); saveConfig(); go("hoje"); render(); };
   $("#setupZero").onclick = () => { S.config = defaultConfig([]); S.config.objetivo = ""; saveConfig(); go("edital"); render(); };
-  bindImport();
+  bindImport(); mostrarCopiaZerar();
 }
 
 /* ---------- Painel: regras dos indicadores (sem tela; recebem os dados e a data de hoje) ---------- */
@@ -4142,7 +4175,7 @@ function viewDesempenho() {
     <div class="chips" role="group" aria-label="Período">${Object.entries(PERIODOS_C).map(([k, l]) => `<button type="button" class="chip" data-cper="${k}" aria-pressed="${k === CEN.periodo}">${l}</button>`).join("")}</div>
     ${CEN.periodo === "custom" ? `<div class="row wrap" style="gap:8px;margin-top:10px"><label class="field"><span>De</span><input type="date" id="cDe" value="${esc(CEN.de || R.ini)}"></label><label class="field"><span>Até</span><input type="date" id="cAte" value="${esc(CEN.ate || R.fim)}"></label><button class="btn sm" id="cAplicar" style="align-self:flex-end">Aplicar</button></div>` : ""}
     <div class="form" style="margin-top:12px">
-      <label class="field"><span>Módulo</span><select id="cMod"><option value="todos">Todos</option>${AMBIENTES.map(a => `<option value="${a.id}" ${a.id === amb ? "selected" : ""}>${esc(a.nome)}</option>`).join("")}</select></label>
+      <label class="field"><span>Módulo</span><select id="cMod"><option value="todos">Todos</option>${AMBIENTES.filter(a => modAtivo(a.id)).map(a => `<option value="${a.id}" ${a.id === amb ? "selected" : ""}>${esc(a.nome)}</option>`).join("")}</select></label>
       <label class="field"><span>Concurso</span><select id="cConc" ${amb === "faculdade" || amb === "desenvolvimento" ? "disabled" : ""}><option value="">Todos</option>${C.concursos.map(c => `<option value="${esc(c.id)}" ${c.id === CEN.concurso ? "selected" : ""}>${esc(c.nome)}</option>`).join("")}</select></label>
       <label class="field"><span>Matéria / disciplina</span><select id="cAlvo"><option value="">Todas</option>${ambs.map(grupoAlvo).join("")}</select></label>
       <label class="field"><span>Semestre</span><select id="cSem" ${amb === "concursos" || amb === "desenvolvimento" ? "disabled" : ""}><option value="">Todos</option>${C.fac.semestres.map(s => `<option value="${esc(s.id)}" ${s.id === CEN.semestre ? "selected" : ""}>${esc(s.nome)}</option>`).join("")}</select></label>
@@ -4485,7 +4518,7 @@ function itensDoDia(ds, opts = {}) {
     for (const l of P.lembretes.filter(x => x.data === ds && !x.feito)) out.push({ k: "lemb", hora: l.hora, titulo: l.titulo, sub: REPETE_T[l.repetir] === "Não repete" ? "" : REPETE_T[l.repetir], cor: "var(--mark)", id: l.id, rot: "Lembrete" });
     for (const x of P.tarefas.filter(x => !x.arquivada && x.prazo === ds)) out.push({ k: "tarefa", hora: x.hora, titulo: x.titulo, sub: nomeVinculo(x.vinculo), cor: corVinculo(x.vinculo), id: x.id, feito: x.status === "concluida", prior: x.prioridade, rot: "Tarefa" });
   }
-  if (quer("faculdade")) {
+  if (quer("faculdade") && modAtivo("faculdade")) {
     for (const s of C.fac.semestres) for (const e of eventosDoSemestre(s).filter(e => e.data === ds)) out.push({ k: "fac", hora: e.hora || "", titulo: e.titulo, sub: TIPOS_EVENTO[e.tipo]?.[1] || "", cor: e.d?.cor || ambiente("faculdade").cor, feito: e.feito, rot: "Faculdade", href: "#faculdade/fac-cal" });
     const sm = facSemestre();
     if (sm) for (const d of C.fac.disciplinas.filter(d => d.semestreId === sm.id && d.dias.includes(parseYmd(ds).getDay()) && (!sm.inicio || ds >= sm.inicio) && (!sm.fim || ds <= sm.fim)))
@@ -4493,13 +4526,13 @@ function itensDoDia(ds, opts = {}) {
   }
   if (quer("concursos")) {
     const revs = revisoesPendentes().filter(r => ds === t ? r.data <= t : r.data === ds);
-    for (const a of AMBIENTES.map(x => x.id)) { const rv = revs.filter(r => r.origem.amb === a); if (rv.length) out.push({ k: "rev", hora: "", titulo: `${plural(rv.length, "revisão", "revisões")}${ds === t && rv.some(r => r.data < t) ? " (inclui atrasadas)" : ""}`, sub: rv.slice(0, 3).map(r => origemRev(r).titulo).join(", ") + (rv.length > 3 ? "…" : ""), cor: ambiente(a).cor, rot: `Revisões · ${ambiente(a).nome}`, href: `#${a}/revisoes` }); }
+    for (const a of AMBIENTES.map(x => x.id).filter(modAtivo)) { const rv = revs.filter(r => r.origem.amb === a); if (rv.length) out.push({ k: "rev", hora: "", titulo: `${plural(rv.length, "revisão", "revisões")}${ds === t && rv.some(r => r.data < t) ? " (inclui atrasadas)" : ""}`, sub: rv.slice(0, 3).map(r => origemRev(r).titulo).join(", ") + (rv.length > 3 ? "…" : ""), cor: ambiente(a).cor, rot: `Revisões · ${ambiente(a).nome}`, href: `#${a}/revisoes` }); }
     const provas = [...(C.dataProva === ds ? [{ nome: C.objetivo || "Prova do concurso" }] : []), ...C.concursos.filter(c => c.dataProva === ds && c.dataProva !== C.dataProva).map(c => ({ nome: c.nome }))];
-    for (const p of provas) out.push({ k: "prova", hora: "", titulo: `Prova: ${p.nome}`, sub: "", cor: "var(--bad)", rot: "Concurso", href: "#concursos/hoje" });
+    if (modAtivo("concursos")) for (const p of provas) out.push({ k: "prova", hora: "", titulo: `Prova: ${p.nome}`, sub: "", cor: "var(--bad)", rot: "Concurso", href: "#concursos/hoje" });
   }
   if (quer("estudo") && ds <= t) {
     const por = {}; for (const { amb, s } of todosRegistros()) if (s.data === ds) por[amb] = (por[amb] || 0) + (s.minutos || 0);
-    for (const [amb, min] of Object.entries(por)) if (min) out.push({ k: "estudo", hora: "", titulo: `${fmtH(min)} estudadas`, sub: ambiente(amb).nome, cor: ambiente(amb).cor, rot: "Estudo", href: `#${amb}/historico`, feito: true });
+    for (const [amb, min] of Object.entries(por)) if (min && modAtivo(amb)) out.push({ k: "estudo", hora: "", titulo: `${fmtH(min)} estudadas`, sub: ambiente(amb).nome, cor: ambiente(amb).cor, rot: "Estudo", href: `#${amb}/historico`, feito: true });
   }
   return out.sort((a, b) => (a.hora || "99").localeCompare(b.hora || "99"));
 }
@@ -5652,7 +5685,7 @@ async function copiaAutomatica() {
 async function apagarTodasCopias() { const L = await listarCopias() || []; for (const c of L) await idbOp("readwrite", st => st.delete(c.id)); return L.length; }
 /* ---------- tela: Ajustes → Segurança e dados ---------- */
 const SEG = { val: null, origem: "", conf: null, modo: "mesclar", preferir: "atual", integ: null, copias: undefined, ocupado: false };
-const fmtResumo = r => [r.materias && `${r.materias} matérias`, r.topicos && `${r.topicos} tópicos`, `${r.sessoes + r.fac + r.dev} sessões`, r.revisoes && `${r.revisoes} revisões`, r.cards && `${r.cards} flashcards`, r.tarefas && `${r.tarefas} tarefas`, r.livros && `${r.livros} livros`, r.notas && `${r.notas} anotações`].filter(Boolean).join(" · ");
+const fmtResumo = r => [r.materias && plural(r.materias, "matéria", "matérias"), r.topicos && plural(r.topicos, "tópico", "tópicos"), plural(r.sessoes + r.fac + r.dev, "sessão", "sessões"), r.revisoes && plural(r.revisoes, "revisão", "revisões"), r.cards && plural(r.cards, "flashcard", "flashcards"), r.tarefas && plural(r.tarefas, "tarefa", "tarefas"), r.livros && plural(r.livros, "livro", "livros"), r.notas && plural(r.notas, "anotação", "anotações")].filter(Boolean).join(" · ");
 const quandoTs = ts => new Date(ts).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
 function segRestaurarHtml() {
   const V = SEG.val; if (!V) return "";
@@ -5790,19 +5823,145 @@ function bindHistorico() {
 }
 
 /* ---------- Ajustes ---------- */
+/* ---------- Ajustes: módulos ligados e "apagar tudo" ---------- */
+function modulosCfgHtml() {
+  const n = MODULOS.filter(m => modAtivo(m.id)).length;
+  return `<div class="panel" id="ajMods"><h2>Módulos</h2>
+    <p class="muted" style="margin:6px 0 12px;max-width:70ch">Escolha quais módulos aparecem no menu. Desativar só esconde o módulo: os registros continuam guardados e voltam quando você ativar de novo. Vale para todos os seus aparelhos.</p>
+    <div class="mod-cfg">${MODULOS.map(m => { const on = modAtivo(m.id), ultimo = on && n === 1;
+      return `<label class="mod-opt" style="--mc:${m.cor}"><input type="checkbox" class="chk" data-modon="${m.id}" ${on ? "checked" : ""} ${ultimo ? "disabled" : ""} aria-describedby="modSt-${m.id}"><span class="mod-ic">${icone(m.id)}</span><span class="mod-opt-t"><b>${m.n}. ${esc(m.nome)}</b><span class="muted small">${esc(m.sub)}</span><span class="small mod-st" id="modSt-${m.id}">${on ? (ultimo ? "Ativo (pelo menos um módulo precisa ficar ativo)" : "Ativo") : "Desativado"}</span></span></label>`; }).join("")}</div></div>`;
+}
+function bindModulosCfg() {
+  $$("[data-modon]").forEach(b => b.onchange = () => {
+    const id = b.dataset.modon, m = MOD_POR_ID[id];
+    if (!b.checked && ativo() && T.amb === id) { b.checked = true; toast(`O cronômetro está rodando em ${m.nome}. Encerre a sessão antes de desativar o módulo.`); return; }
+    if (!b.checked && MODULOS.filter(x => x.id !== id && modAtivo(x.id)).length === 0) { b.checked = true; toast("Pelo menos um módulo precisa ficar ativo."); return; }
+    S.config.modulos = { ...S.config.modulos, [id]: b.checked };
+    saveConfig(); render(); toast(`Módulo ${m.nome} ${b.checked ? "ativado" : "desativado"}${b.checked ? "" : ". Os registros continuam guardados."}`);
+  });
+}
+var ZERANDO = false;
+const ZER = { aberto: false, copia: true, ocupado: false, erro: "" };
+function zerarHtml() {
+  const r = resumoDados(S.config, S.months), itens = fmtResumo(r);
+  return `<div class="panel perigo" id="zerarPanel" style="margin-top:16px"><h2>Apagar tudo e começar do zero</h2>
+    <p class="muted" style="margin:6px 0 12px;max-width:70ch">Apaga todos os seus registros: matérias, edital, ciclos, sessões, revisões, flashcards, faculdade, organização, metas, ajustes e arquivos enviados. O app volta para o primeiro acesso, como se fosse novo. Continuam só o seu login e o tema deste aparelho.</p>
+    ${!ZER.aberto ? `<button class="btn danger" id="zAbrir">Zerar todos os registros…</button>` : `
+    <div class="zer-box">
+      <p style="margin:0 0 10px"><b>Serão apagados:</b> ${esc(itens || "nenhum registro ainda")}${r.meses ? ` (${plural(r.meses, "mês", "meses")} de registros)` : ""}.</p>
+      <ol class="zer-passos">
+        <li>Recomendado: guarde um backup antes. <button type="button" class="btn sm" id="zBaixar">Baixar backup</button></li>
+        <li><label class="row small" style="gap:8px;align-items:flex-start"><input type="checkbox" class="chk" id="zCopia" ${ZER.copia ? "checked" : ""}> <span>Guardar uma cópia de segurança só neste aparelho, para poder desfazer. Desmarque para apagar também as cópias automáticas guardadas aqui.</span></label></li>
+        <li><label class="field" style="max-width:320px"><span>Para confirmar, digite ZERAR</span><input type="text" id="zConf" autocomplete="off" autocapitalize="characters" spellcheck="false"></label></li>
+      </ol>
+      ${ZER.erro ? `<p class="notice" role="alert">${esc(ZER.erro)}</p>` : ""}
+      <div class="row wrap" style="gap:8px;margin-top:10px"><button type="button" class="btn danger-solid" id="zExec" ${ZER.ocupado ? "disabled" : ""}>${ZER.ocupado ? "Apagando…" : "Apagar tudo agora"}</button><button type="button" class="btn ghost" id="zCancel" ${ZER.ocupado ? "disabled" : ""}>Cancelar</button></div>
+    </div>`}</div>`;
+}
+function bindZerar() {
+  const ab = $("#zAbrir"); if (ab) ab.onclick = () => { ZER.aberto = true; ZER.erro = ""; render(); $("#zerarPanel")?.scrollIntoView({ block: "center" }); };
+  const ca = $("#zCancel"); if (ca) ca.onclick = () => { ZER.aberto = false; ZER.erro = ""; render(); };
+  const bx = $("#zBaixar"); if (bx) bx.onclick = () => $("#expBtn")?.click();
+  const cp = $("#zCopia"); if (cp) cp.onchange = () => { ZER.copia = cp.checked; };
+  const ex = $("#zExec"); if (ex) ex.onclick = async () => {
+    if (($("#zConf")?.value || "").trim().toUpperCase() !== "ZERAR") { toast("Digite ZERAR para confirmar"); $("#zConf")?.focus(); return; }
+    ZER.copia = !!$("#zCopia")?.checked; ZER.ocupado = true; ZER.erro = ""; render();
+    try { await zerarTudo(ZER.copia); }
+    catch (e) { ZERANDO = false; ZER.ocupado = false; ZER.erro = e?.message || String(e); registrarSync("erro", "-", "apagar tudo: " + ZER.erro); render(); }
+  };
+}
+/* Arquivos enviados (materiais e biblioteca) citados nos dados: { onde, ref } */
+function refsArquivos(v, out = []) {
+  if (Array.isArray(v)) v.forEach(x => refsArquivos(x, out));
+  else if (v && typeof v === "object") { if ((v.onde === "supabase" || v.onde === "assets") && typeof v.ref === "string" && v.ref) out.push({ onde: v.onde, ref: v.ref }); Object.values(v).forEach(x => refsArquivos(x, out)); }
+  return out;
+}
+async function zerarTudo(manterCopia) {
+  const SITE = typeof sb !== "undefined" && !!sb, uid = typeof userId !== "undefined" ? userId : "";
+  if (SITE && (!uid || !navigator.onLine)) throw new Error("Sem conexão com a sua conta. Conecte-se à internet e tente de novo. Nada foi apagado.");
+  if (!SITE && S.mode === "db" && typeof col === "undefined") throw new Error("A conexão com seus dados não está pronta. Recarregue a página e tente de novo. Nada foi apagado.");
+  // 1. cópia de segurança neste aparelho (antes de apagar qualquer coisa)
+  let copiaId = null;
+  if (manterCopia && S.config) { copiaId = await salvarCopia("antes de zerar"); if (!copiaId) throw new Error("Não foi possível guardar a cópia de segurança neste aparelho. Nada foi apagado. Baixe o backup ou desmarque a cópia para continuar."); }
+  const arquivos = refsArquivos(conteudoAtual());
+  // 2. para de gravar e espera as gravações em andamento
+  ZERANDO = true;
+  for (let i = 0; i < 60 && Object.values(writing).some(Boolean); i++) await new Promise(r => setTimeout(r, 100));
+  if (typeof ativo === "function" && ativo()) { T = migrarRelogio(null); }
+  // 3. nuvem
+  if (SITE) {
+    const { error } = await sb.from("documentos").delete().eq("user_id", uid);
+    if (error) throw new Error(`O servidor não apagou os registros (${error.message || error.code}). Nada foi apagado.`);
+    const { data: resto, error: e2 } = await sb.from("documentos").select("chave");
+    if (e2) throw new Error("Os registros foram apagados, mas não deu para conferir. Recarregue a página para ver o resultado.");
+    if (resto && resto.length) throw new Error(`${plural(resto.length, "documento ficou", "documentos ficaram")} sem apagar. Tente de novo.`);
+  } else if (S.mode === "db") {
+    const chaves = [...new Set(["config", ...(S.chaves || []), ...Object.keys(S.months)])]; let falhas = 0;
+    for (const k of chaves) { try { await col.doc(k).delete(); } catch { falhas++; } }
+    if (falhas) throw new Error(`${plural(falhas, "documento não foi apagado", "documentos não foram apagados")}. Tente de novo${copiaId ? "; a cópia de segurança deste aparelho foi mantida" : ""}.`);
+  }
+  // 4. arquivos enviados
+  let arqFalhas = 0;
+  if (SITE) {
+    const caminhos = new Set(arquivos.filter(x => x.onde === "supabase").map(x => x.ref));
+    try { const st = sb.storage.from("materiais"), { data: pastas } = await st.list(uid, { limit: 1000 });
+      for (const p of pastas || []) { if (p.id) caminhos.add(`${uid}/${p.name}`); else { const { data: fs } = await st.list(`${uid}/${p.name}`, { limit: 1000 }); for (const f of fs || []) if (f.id) caminhos.add(`${uid}/${p.name}/${f.name}`); } } } catch {}
+    const lista = [...caminhos].filter(p => p.startsWith(uid + "/"));
+    for (let i = 0; i < lista.length; i += 100) { try { const { error } = await sb.storage.from("materiais").remove(lista.slice(i, i + 100)); if (error) arqFalhas += Math.min(100, lista.length - i); } catch { arqFalhas += Math.min(100, lista.length - i); } }
+  } else {
+    const a = await (window.claude?.use?.("assets") || Promise.resolve(null)).catch(() => null);
+    for (const x of arquivos.filter(x => x.onde === "assets")) { try { await a?.delete(x.ref); } catch { arqFalhas++; } }
+  }
+  // 5. este aparelho: cópia local dos dados, pendências, filtros e cronômetro (o tema fica)
+  const meu = uid || (typeof artUid !== "undefined" ? artUid : "");
+  try { for (const k of Object.keys(localStorage)) if (/^mesa-/.test(k) && k !== "mesa-tema" && (!k.includes(":") || (meu && k.endsWith(":" + meu)))) localStorage.removeItem(k); } catch {}
+  if (!manterCopia) { try { await apagarTodasCopias(); } catch {} }
+  try { sessionStorage.setItem("mesa-zerado", JSON.stringify({ arqFalhas, copia: !!copiaId })); } catch {}
+  S.config = null; S.months = {}; S.srv = {}; S.chaves = []; S.confirmado = true; ZER.aberto = false; ZER.ocupado = false;
+  history.replaceState(null, "", location.pathname + location.search);
+  render();
+  try { location.reload(); } catch {}
+}
+/* Primeiro acesso depois de zerar: oferece desfazer com a cópia guardada neste aparelho */
+async function mostrarCopiaZerar() {
+  const L = await listarCopias(), c = (L || []).find(x => x.motivo === "antes de zerar"), el = $("#setupCopia");
+  if (!c || !el || S.config) return;
+  el.innerHTML = `<div class="panel" style="margin-top:16px"><h2>Desfazer: dados de antes de zerar</h2>
+    <p class="muted" style="margin:8px 0 14px">Cópia guardada neste aparelho em ${quandoTs(c.em)}: ${esc(fmtResumo(c.resumo))}.</p>
+    <div class="row wrap" style="gap:8px"><button class="btn primary" id="zRest">Restaurar esses dados</button><button class="btn" id="zBaixarCopia">Baixar a cópia</button><button class="btn ghost danger" id="zApagarCopia">Apagar a cópia</button></div></div>`;
+  $("#zRest").onclick = async () => {
+    const x = await lerCopia(c.id);
+    if (!x || sha256(canon(x.conteudo)) !== x.hash) { toast("A cópia não passou na conferência de integridade. Nada foi alterado."); return; }
+    ZERANDO = false; S.config = normalizeConfig(JSON.parse(JSON.stringify(x.conteudo.config)));
+    S.months = Object.fromEntries(Object.entries(x.conteudo.meses || {}).map(([k, v]) => [k, normalizeMes(JSON.parse(JSON.stringify(v)))]));
+    saveConfig(); for (const k of Object.keys(S.months)) saveMonth(k);
+    registrarSync("restauracao", "-", "dados de antes de zerar restaurados da cópia deste aparelho"); render(); toast("Dados restaurados");
+  };
+  $("#zBaixarCopia").onclick = async () => { const x = await lerCopia(c.id); if (!x) return;
+    const txt = JSON.stringify({ app: "mesa-de-estudos", formato: 3, exportadoEm: new Date(x.em).toISOString(), resumo: x.resumo, integridade: { algoritmo: "SHA-256", hash: x.hash }, conteudo: x.conteudo }, null, 1);
+    try { await salvarArquivoLocal(`mesa-de-estudos-antes-de-zerar-${ymd(new Date(x.em))}.json`, txt, "application/json"); } catch { toast("Não foi possível baixar"); } };
+  $("#zApagarCopia").onclick = async () => { const b = $("#zApagarCopia"); if (!armed(b, "Apagar a cópia?")) return; await apagarCopia(c.id); el.innerHTML = ""; toast("Cópia apagada"); };
+}
 function viewAjustes() {
   return `<div class="head"><div><div class="label">Preferências</div><h1>Ajustes</h1></div></div><!--note-->
-  <form class="panel" id="aForm"><div class="form">
-    <label class="field span2"><span>Objetivo (aparece no topo do painel)</span><input type="text" id="aObj" value="${esc(S.config.objetivo)}" maxlength="80"></label>
-    <label class="field"><span>Data da prova</span><input type="date" id="aProva" value="${esc(S.config.dataProva)}"></label>
-    <label class="field"><span>Meta semanal de Concursos (horas)</span><input type="number" id="aMeta" min="1" max="100" step="1" value="${S.config.metaSemanal}"></label>
-    <label class="field"><span>Meta diária de Concursos (horas; 0 = sugerida pelo plano)</span><input type="number" id="aMetaDia" min="0" max="24" step="0.5" value="${S.config.metaDiaria}"></label>
-    <label class="field"><span>Meta diária da Faculdade (horas; 0 = sem meta)</span><input type="number" id="aFacDia" min="0" max="24" step="0.5" value="${S.config.fac.metaDiaria}"></label>
-    <label class="field"><span>Meta semanal da Faculdade (horas; 0 = sem meta)</span><input type="number" id="aFacSem" min="0" max="100" step="0.5" value="${S.config.fac.metaSemanal}"></label>
-    <label class="field span2"><span>Intervalos de revisão (dias, separados por vírgula)</span><input type="text" id="aRev" value="${S.config.revisoes.join(", ")}"></label>
-    <div class="field span2"><span>Dias em que você estuda (usados no plano de hoje)</span><div class="chips" id="aDias" role="group" aria-label="Dias de estudo">${[1,2,3,4,5,6,0].map(d => `<button type="button" class="chip" data-dia="${d}" aria-pressed="${S.config.diasEstudo.includes(d)}">${DOW[d]}</button>`).join("")}</div></div>
-    <div class="field span4"><div class="row end"><button class="btn primary" type="submit">Salvar ajustes</button></div></div>
-  </div></form>
+  ${modulosCfgHtml()}
+  <form class="panel" id="aForm" style="margin-top:16px"><h2>Metas e rotina de estudo</h2>
+    <div class="aj-grupo"><h3 class="aj-gt">Geral</h3><div class="form">
+      <div class="field span2"><span>Dias em que você estuda (usados no plano de hoje)</span><div class="chips" id="aDias" role="group" aria-label="Dias de estudo">${[1,2,3,4,5,6,0].map(d => `<button type="button" class="chip" data-dia="${d}" aria-pressed="${S.config.diasEstudo.includes(d)}">${DOW[d]}</button>`).join("")}</div></div>
+      <label class="field span2"><span>Intervalos de revisão (dias, separados por vírgula)</span><input type="text" id="aRev" value="${S.config.revisoes.join(", ")}"><small class="aj-dica">Ex.: 1, 7, 30. Valem para as revisões novas.</small></label>
+    </div></div>
+    <div class="aj-grupo" ${modAtivo("concursos") ? "" : "hidden"}><h3 class="aj-gt"><span class="dot" style="background:var(--amb-con)"></span>Concursos</h3><div class="form">
+      <label class="field span2"><span>Objetivo (aparece no Painel)</span><input type="text" id="aObj" value="${esc(S.config.objetivo)}" maxlength="80"></label>
+      <label class="field span2"><span>Data da prova</span><input type="date" id="aProva" value="${esc(S.config.dataProva)}"></label>
+      <label class="field span2"><span>Meta semanal (horas)</span><input type="number" id="aMeta" min="1" max="100" step="1" value="${S.config.metaSemanal}"></label>
+      <label class="field span2"><span>Meta diária (horas)</span><input type="number" id="aMetaDia" min="0" max="24" step="0.5" value="${S.config.metaDiaria}"><small class="aj-dica">0 = a sugerida pelo plano do dia.</small></label>
+    </div></div>
+    <div class="aj-grupo" ${modAtivo("faculdade") ? "" : "hidden"}><h3 class="aj-gt"><span class="dot" style="background:var(--amb-fac)"></span>Faculdade</h3><div class="form">
+      <label class="field span2"><span>Meta diária (horas)</span><input type="number" id="aFacDia" min="0" max="24" step="0.5" value="${S.config.fac.metaDiaria}"><small class="aj-dica">0 = sem meta.</small></label>
+      <label class="field span2"><span>Meta semanal (horas)</span><input type="number" id="aFacSem" min="0" max="100" step="0.5" value="${S.config.fac.metaSemanal}"><small class="aj-dica">0 = sem meta.</small></label>
+    </div></div>
+    <div class="row end" style="margin-top:14px"><button class="btn primary" type="submit">Salvar ajustes</button></div>
+  </form>
   <div class="panel" style="margin-top:16px"><h2>Aparência</h2>
     <p class="muted" style="margin:8px 0 12px">Automático segue o tema do seu aparelho. A escolha vale para este aparelho.</p>
     <div class="chips" role="group" aria-label="Tema">${Object.entries(TEMAS).map(([k, t]) => `<button type="button" class="chip" data-tema="${k}" aria-pressed="${k === tema}">${t.ic} ${t.nome}</button>`).join("")}</div></div>
@@ -5812,9 +5971,10 @@ function viewAjustes() {
   <div class="panel" style="margin-top:16px"><div class="ph"><h2>Conta</h2></div>
     <div class="row wrap between"><span class="muted">Conectado como <b style="color:var(--ink)">${esc(S.email)}</b></span><button class="btn" id="sair">Sair da conta</button></div>
     <label class="row small" style="gap:8px;margin-top:10px"><input type="checkbox" id="sairCopias"> Aparelho compartilhado: ao sair, apagar também as cópias automáticas guardadas aqui</label>
-    <p class="muted small" style="margin-top:6px">Ao sair, a cópia dos seus dados guardada neste navegador é apagada. Seus dados continuam na sua conta.</p></div>`;
+    <p class="muted small" style="margin-top:6px">Ao sair, a cópia dos seus dados guardada neste navegador é apagada. Seus dados continuam na sua conta.</p></div>  ${zerarHtml()}`;
 }
 function bindAjustes() {
+  bindModulosCfg(); bindZerar();
   $$("#aDias .chip").forEach(b => b.onclick = () => b.setAttribute("aria-pressed", b.getAttribute("aria-pressed") !== "true"));
   $("#aForm").onsubmit = e => { e.preventDefault();
     const revs = $("#aRev").value.split(/[,;\s]+/).map(Number).filter(n => Number.isInteger(n) && n > 0 && n < 400);
@@ -5846,6 +6006,7 @@ function bindAjustes() {
 }
 
 if ("serviceWorker" in navigator && location.protocol === "https:") window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+try { const z = JSON.parse(sessionStorage.getItem("mesa-zerado") || "null"); if (z) { sessionStorage.removeItem("mesa-zerado"); setTimeout(() => toast(`Tudo apagado. O app está zerado${z.copia ? "; uma cópia de segurança ficou só neste aparelho" : ""}.${z.arqFalhas ? ` ${z.arqFalhas} arquivo(s) não foram apagados do armazenamento.` : ""}`), 900); } } catch {}
 render();
 boot();
 })();
